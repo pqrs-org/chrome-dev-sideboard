@@ -14,11 +14,10 @@ const elements = {
   url: document.querySelector("#url"),
   toggle: document.querySelector("#toggle"),
   patterns: document.querySelector("#patterns"),
-  height: document.querySelector("#height"),
   fontSize: document.querySelector("#fontSize"),
   backgroundColor: document.querySelector("#backgroundColor"),
   textColor: document.querySelector("#textColor"),
-  save: document.querySelector("#save"),
+  borderColor: document.querySelector("#borderColor"),
   status: document.querySelector("#status"),
 };
 
@@ -27,7 +26,7 @@ let sitePattern;
 let matchedPatterns = [];
 let coveredByCustomPattern = false;
 let savedSettings;
-let isBusy = false;
+let saveQueue = Promise.resolve();
 
 async function syncContentScript() {
   const response = await chrome.runtime.sendMessage({
@@ -75,20 +74,24 @@ function renderSiteState(patterns) {
 function readSettings() {
   return {
     patterns: normalizePatterns(elements.patterns.value),
-    height: Number(elements.height.value),
     fontSize: Number(elements.fontSize.value),
     backgroundColor: elements.backgroundColor.value,
     textColor: elements.textColor.value,
+    borderColor: elements.borderColor.value,
   };
 }
 
 function renderSettings(settings) {
   elements.patterns.value = settings.patterns.join("\n");
-  for (const key of ["height", "fontSize", "backgroundColor", "textColor"]) {
+  for (const key of [
+    "fontSize",
+    "backgroundColor",
+    "textColor",
+    "borderColor",
+  ]) {
     elements[key].value = settings[key];
   }
   savedSettings = readSettings();
-  updateSaveButton();
 }
 
 function validateSettings(settings) {
@@ -102,18 +105,38 @@ function validateSettings(settings) {
 }
 
 async function persistSettings(settings) {
-  validateSettings(settings);
-  if (settings.patterns.length) {
-    const granted = await chrome.permissions.request({
-      origins: settings.patterns,
-    });
-    if (!granted) throw new Error("Access to the site was not granted.");
+  if (JSON.stringify(settings) === JSON.stringify(savedSettings)) return;
+  const patternsChanged =
+    JSON.stringify(settings.patterns) !==
+    JSON.stringify(savedSettings.patterns);
+  await chrome.storage.sync.set(settings);
+  if (patternsChanged) {
+    await syncContentScript();
+    await updateActiveTab(settings.patterns);
+  }
+  savedSettings = settings;
+}
+
+function saveSettings() {
+  if (!savedSettings) return;
+  const settings = readSettings();
+  setStatus("");
+  try {
+    validateSettings(settings);
+  } catch (error) {
+    setStatus(String(error.message || error), true);
+    return;
   }
 
-  await chrome.storage.sync.set(settings);
-  await syncContentScript();
-  savedSettings = settings;
-  updateSaveButton();
+  setBusy(true);
+  const operation = saveQueue
+    .then(() => persistSettings(settings))
+    .catch((error) => setStatus(String(error.message || error), true))
+    .finally(() => {
+      if (saveQueue === operation) setBusy(false);
+    });
+  saveQueue = operation;
+  if (sitePattern) renderSiteState(settings.patterns);
 }
 
 async function updateActiveTab(patterns) {
@@ -133,7 +156,8 @@ async function updateActiveTab(patterns) {
   }
 }
 
-elements.toggle.addEventListener("click", async () => {
+elements.toggle.addEventListener("click", () => {
+  renderSiteState(readSettings().patterns);
   setStatus("");
   if (coveredByCustomPattern) {
     elements.patterns.focus();
@@ -141,62 +165,40 @@ elements.toggle.addEventListener("click", async () => {
     return;
   }
 
-  setBusy(true);
-  try {
-    const settings = readSettings();
-    if (matchedPatterns.length) {
-      settings.patterns = settings.patterns.filter(
-        (pattern) => !matchedPatterns.includes(pattern),
-      );
-      await persistSettings(settings);
-    } else {
-      settings.patterns = [...new Set([...settings.patterns, sitePattern])];
-      await persistSettings(settings);
-    }
-
-    await updateActiveTab(settings.patterns);
-    renderSettings(settings);
-    renderSiteState(settings.patterns);
-    setStatus("Settings saved.");
-  } catch (error) {
-    setStatus(String(error.message || error), true);
-  } finally {
-    setBusy(false);
+  const settings = readSettings();
+  if (matchedPatterns.length) {
+    settings.patterns = settings.patterns.filter(
+      (pattern) => !matchedPatterns.includes(pattern),
+    );
+  } else {
+    settings.patterns = [...new Set([...settings.patterns, sitePattern])];
   }
+  elements.patterns.value = settings.patterns.join("\n");
+  saveSettings();
 });
 
-elements.form.addEventListener("submit", async (event) => {
+elements.form.addEventListener("submit", (event) => {
   event.preventDefault();
-  setBusy(true);
-  setStatus("");
-  try {
-    const settings = readSettings();
-    await persistSettings(settings);
-    await updateActiveTab(settings.patterns);
-    renderSettings(settings);
-    if (sitePattern) renderSiteState(settings.patterns);
-    setStatus("Settings saved.");
-  } catch (error) {
-    setStatus(String(error.message || error), true);
-  } finally {
-    setBusy(false);
-  }
+  saveSettings();
 });
 
-elements.form.addEventListener("input", updateSaveButton);
-elements.form.addEventListener("change", updateSaveButton);
+elements.form.addEventListener("change", saveSettings);
 
-function setBusy(busy) {
-  isBusy = busy;
-  elements.toggle.disabled = busy || !sitePattern;
-  updateSaveButton();
+for (const key of ["backgroundColor", "textColor", "borderColor"]) {
+  elements[key].addEventListener("input", () => {
+    if (!sitePattern) return;
+    chrome.tabs
+      .sendMessage(activeTab.id, {
+        type: "preview-title-bar-color",
+        key,
+        value: elements[key].value,
+      })
+      .catch(() => {});
+  });
 }
 
-function updateSaveButton() {
-  elements.save.disabled =
-    isBusy ||
-    !savedSettings ||
-    JSON.stringify(readSettings()) === JSON.stringify(savedSettings);
+function setBusy(busy) {
+  elements.toggle.disabled = busy || !sitePattern;
 }
 
 function setStatus(message, isError = false) {

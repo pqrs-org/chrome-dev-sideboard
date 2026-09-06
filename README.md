@@ -4,10 +4,9 @@ A Chrome extension that shows the current page title in a draggable chip on sele
 
 ## Features
 
-- Shows the title chip only on sites you allow
+- Shows the title chip only on sites you select
 - Tracks page title changes made by SPAs and other dynamic pages
-- Drag the chip anywhere in the viewport and keep its position across sites
-- Configurable height, font size, background color, and text color
+- Drag the chip anywhere in the viewport and save its position per site (origin)
 - Uses Shadow DOM to isolate the title chip from page styles
 - Saves settings with Chrome Sync
 
@@ -26,7 +25,7 @@ https://*.office.com/*
 https://example.sharepoint.com/*
 ```
 
-Chrome requests access only to sites added in the extension panel. After changing the settings, reload any other target pages that are already open.
+The extension requests access to all HTTP and HTTPS sites at installation. URL patterns control where the title chip appears, so adding a site does not require an additional permission prompt. After changing the settings, reload any other target pages that are already open.
 
 ## Development
 

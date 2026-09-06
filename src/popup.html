@@ -45,10 +45,6 @@
           <div class="section-title">Appearance</div>
           <div class="grid">
             <label
-              >Height (px)
-              <input id="height" type="number" min="20" max="96" required />
-            </label>
-            <label
               >Font size (px)
               <input id="fontSize" type="number" min="10" max="48" required />
             </label>
@@ -57,16 +53,18 @@
               <input id="backgroundColor" type="color" />
             </label>
             <label
-              >Text color
+              >Text
               <input id="textColor" type="color" />
             </label>
+            <label
+              >Border
+              <input id="borderColor" type="color" />
+            </label>
           </div>
-          <p class="hint">Drag the title chip on the page to reposition it.</p>
+          <p class="hint">
+            Drag the title chip to save its position for this site.
+          </p>
         </section>
-
-        <div class="actions">
-          <button id="save" class="primary" type="submit" disabled>Save</button>
-        </div>
       </form>
 
       <div id="status" class="status" role="status" aria-live="polite"></div>

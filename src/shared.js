@@ -3,10 +3,10 @@
 
   const DEFAULTS = Object.freeze({
     patterns: [],
-    height: 32,
     fontSize: 14,
     backgroundColor: "#202124",
     textColor: "#ffffff",
+    borderColor: "#48494b",
     chipPosition: { x: 0.5, y: 0 },
   });
 

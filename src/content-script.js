@@ -3,13 +3,14 @@
 
   const HOST_ID = "chrome-page-title-bar-root";
   const DEFAULTS = {
-    height: 32,
     fontSize: 14,
     backgroundColor: "#202124",
     textColor: "#ffffff",
+    borderColor: "#48494b",
     chipPosition: { x: 0.5, y: 0 },
   };
   const VIEWPORT_MARGIN = 8;
+  const POSITION_KEY = `chipPosition:${location.origin}`;
 
   if (window.top !== window || document.getElementById(HOST_ID)) return;
 
@@ -19,6 +20,7 @@
   let titleObserverTarget;
   let chip;
   let chipPosition = DEFAULTS.chipPosition;
+  let fallbackPosition = DEFAULTS.chipPosition;
   let dragState;
 
   function updateTitle() {
@@ -46,15 +48,10 @@
 
   function applyAppearance(settings) {
     if (!host) return;
-    const height = Math.min(
-      96,
-      Math.max(20, Number(settings.height) || DEFAULTS.height),
-    );
     const fontSize = Math.min(
       48,
       Math.max(10, Number(settings.fontSize) || DEFAULTS.fontSize),
     );
-    host.style.setProperty("--ptb-height", `${height}px`);
     host.style.setProperty("--ptb-font-size", `${fontSize}px`);
     host.style.setProperty(
       "--ptb-background",
@@ -63,6 +60,10 @@
     host.style.setProperty(
       "--ptb-color",
       settings.textColor || DEFAULTS.textColor,
+    );
+    host.style.setProperty(
+      "--ptb-border-color",
+      settings.borderColor || DEFAULTS.borderColor,
     );
   }
 
@@ -139,7 +140,9 @@
       x: travel.x ? (rect.left - VIEWPORT_MARGIN) / travel.x : 0,
       y: travel.y ? (rect.top - VIEWPORT_MARGIN) / travel.y : 0,
     };
-    chrome.storage.sync.set({ chipPosition }).catch(console.error);
+    chrome.storage.sync
+      .set({ [POSITION_KEY]: chipPosition })
+      .catch(console.error);
   }
 
   async function mount() {
@@ -165,18 +168,17 @@
       .chip {
         align-items: center;
         background: var(--ptb-background);
-        border: 1px solid rgb(255 255 255 / 18%);
-        border-radius: calc(var(--ptb-height) / 2);
+        border: 1px solid var(--ptb-border-color);
+        border-radius: 999px;
         box-shadow: 0 2px 8px rgb(0 0 0 / 35%);
         box-sizing: border-box;
         color: var(--ptb-color);
         cursor: grab;
         display: flex;
         font: 500 var(--ptb-font-size)/1.3 system-ui, -apple-system, sans-serif;
-        height: var(--ptb-height);
         max-width: calc(100vw - ${VIEWPORT_MARGIN * 2}px);
         overflow: hidden;
-        padding: 0 14px;
+        padding: 6px 14px;
         touch-action: none;
         user-select: none;
       }
@@ -203,9 +205,13 @@
     chip.addEventListener("pointercancel", finishDrag);
     window.addEventListener("resize", handleResize);
 
-    const settings = await chrome.storage.sync.get(DEFAULTS);
+    const settings = await chrome.storage.sync.get({
+      ...DEFAULTS,
+      [POSITION_KEY]: null,
+    });
     applyAppearance(settings);
-    applyPosition(settings.chipPosition);
+    fallbackPosition = settings.chipPosition;
+    applyPosition(settings[POSITION_KEY] ?? fallbackPosition);
     updateTitle();
     observeTitle();
   }
@@ -227,22 +233,36 @@
 
   chrome.runtime.onMessage.addListener((message) => {
     if (message?.type === "remove-title-bar") unmount();
+    if (message?.type === "preview-title-bar-color" && host) {
+      const properties = {
+        backgroundColor: "--ptb-background",
+        textColor: "--ptb-color",
+        borderColor: "--ptb-border-color",
+      };
+      if (
+        Object.hasOwn(properties, message.key) &&
+        /^#[0-9a-f]{6}$/i.test(message.value)
+      ) {
+        host.style.setProperty(properties[message.key], message.value);
+      }
+    }
   });
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== "sync" || !host) return;
     const appearanceChanged = [
-      "height",
       "fontSize",
       "backgroundColor",
       "textColor",
+      "borderColor",
     ].some((key) => key in changes);
     if (appearanceChanged)
       chrome.storage.sync.get(DEFAULTS).then((settings) => {
         applyAppearance(settings);
         requestAnimationFrame(() => applyPosition(chipPosition));
       });
-    if ("chipPosition" in changes) applyPosition(changes.chipPosition.newValue);
+    if (POSITION_KEY in changes)
+      applyPosition(changes[POSITION_KEY].newValue ?? fallbackPosition);
   });
 
   if (document.documentElement) mount();

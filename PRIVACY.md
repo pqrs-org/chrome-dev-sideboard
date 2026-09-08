@@ -10,9 +10,13 @@ While the side panel is open, the extension reads the active tab's title to disp
 
 The extension automatically observes HTTP and HTTPS requests associated with tabs, including while the panel is closed. It processes request identifiers, types, methods, timestamps, completion and failure events, HTTP status codes, cache indicators, and response headers to calculate counts, durations, and available response body sizes.
 
-Only derived measurements and temporary tracking information are retained: per-tab counters, durations, sizes, pending request identifiers and start times, up to 100 recent failed request URLs with methods, timestamps, and error codes per tab, main document identifiers, and the current main document URL used to detect navigation. Usernames, passwords, and fragments are stripped from stored URLs; their paths and queries may still contain private information. Raw headers, cookies, credentials, and response bodies are not stored. Page titles are displayed but not saved.
+Network measurements retain: per-tab counters, durations, sizes, pending request identifiers and start times, up to 100 recent failed request URLs with methods, timestamps, and error codes per tab, main document identifiers, and the current main document URL used to detect navigation. Usernames, passwords, and fragments are stripped from stored URLs; their paths and queries may still contain private information. Raw network headers are not retained. Page titles are displayed but not saved.
 
-The extension does not inject scripts into websites, modify or block traffic, or send additional requests to probe a site.
+The extension also injects scripts into HTTP/HTTPS pages and frames to wrap fetch and XMLHttpRequest and capture JSON-like responses. Request URLs, methods, status codes, timestamps, timings, and response payload text are retained in session memory. Each tab stores at most 80 records and 512,000 serialized characters, with payload text limited to 100,000 characters per record. These payloads may contain personal information, tokens, or other application secrets. The extension does not intentionally read request authorization headers or browser cookies.
+
+Local Storage and Session Storage keys and values are read from the active page's top frame on demand for the Storage view. They remain in panel memory and are not persisted by the extension. The Copy action writes the selected response or storage value to the clipboard only when clicked.
+
+The extension does not change request parameters, block traffic, or send additional requests to probe a site.
 
 ## Storage and retention
 
@@ -30,9 +34,10 @@ The extension does not sell user data or use it for advertising, creditworthines
 
 - `tabs`: reads the active tab's title and URL availability and follows tab changes.
 - `sidePanel`: displays the title and network measurements alongside the page.
-- `webRequest` and HTTP/HTTPS website access: passively observe requests and response metadata to measure traffic.
+- `webRequest` and HTTP/HTTPS website access: passively observe requests and response metadata to measure traffic; website access also enables JSON capture scripts and on-demand website storage inspection.
 - `webNavigation`: identifies new main documents, including restored pages, so measurements do not carry over to a different document.
-- `storage`: keeps temporary measurements in Chrome session memory across background worker restarts.
+- `storage`: keeps temporary measurements and captured JSON history in Chrome session memory across background worker restarts.
+- `clipboardWrite`: copies the selected response or storage value when the user clicks Copy.
 
 ## Contact
 

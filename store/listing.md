@@ -8,7 +8,7 @@ Page Title Bar
 
 ## Summary
 
-Displays the page title, request counts, response times, and response sizes in the side panel.
+Page title, network measurements, JSON fetch/XHR inspection, and local/session storage in the side panel.
 
 ## Detailed description
 
@@ -24,7 +24,7 @@ Measurement starts automatically for HTTP and HTTPS traffic. Reload an existing 
 
 Durations include downloads, redirects, and authentication waits. Sizes use available Content-Length response headers and are not total network usage. Some browser, cache, and worker traffic cannot be observed.
 
-The extension passively observes traffic without injecting page scripts, changing requests, or connecting a debugger. It processes titles, URLs, request metadata, and response headers to provide the display. Measurements and temporary tracking information stay in Chrome session memory and clear when the tab closes or Chrome restarts. They are not sent to the developer. There are no analytics or advertising services.
+The extension observes network metadata and wraps page fetch/XHR APIs to capture JSON-like responses, without connecting a debugger. The Fetch / Storage view provides request and JSON filtering, tree expansion, copying, and on-demand Local Storage and Session Storage inspection. It processes titles, URLs, network metadata, response payloads, and requested storage values. Measurements and bounded JSON history stay in Chrome session memory and clear when the tab closes or Chrome restarts. They are not sent to the developer. There are no analytics or advertising services.
 
 Requires Chrome 116 or later.
 

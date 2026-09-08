@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Page Title Bar",
   "version": "1.1.0",
-  "description": "Displays the page title, request counts, response times, and response sizes in the side panel.",
+  "description": "Page title, network measurements, JSON fetch/XHR inspection, and local/session storage in the side panel.",
   "icons": {
     "16": "icons/icon-16.png",
     "32": "icons/icon-32.png",
@@ -14,7 +14,8 @@
     "sidePanel",
     "webRequest",
     "webNavigation",
-    "storage"
+    "storage",
+    "clipboardWrite"
   ],
   "background": {
     "service_worker": "src/background.js"
@@ -30,5 +31,20 @@
   "side_panel": {
     "default_path": "src/sidepanel.html"
   },
-  "host_permissions": ["http://*/*", "https://*/*"]
+  "host_permissions": ["http://*/*", "https://*/*"],
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["src/capture-bridge.js"],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["src/capture.js"],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    }
+  ]
 }

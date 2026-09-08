@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Fetch / Storage</title>
+    <link rel="stylesheet" href="inspector.css" />
+  </head>
+  <body>
+    <main class="app">
+      <div class="mode-tabs" role="group">
+        <button id="fetchModeButton" class="mode-tab active" type="button">
+          Fetch / XHR
+        </button>
+        <button id="storageModeButton" class="mode-tab" type="button">
+          Storage
+        </button>
+      </div>
+      <div class="workspace">
+        <aside class="sidebar">
+          <div class="toolbar">
+            <input
+              id="filterInput"
+              type="search"
+              placeholder="Filter URL or JSON"
+            />
+            <button id="reloadButton" type="button">Reload</button>
+            <button id="refreshStorageButton" class="hidden" type="button">
+              Refresh
+            </button>
+          </div>
+          <div class="summary">
+            <div class="summary-primary">
+              <span id="countLabel">0 requests</span>
+              <label id="errorsOnlyLabel">
+                <input id="errorsOnlyInput" type="checkbox" />
+                Errors
+              </label>
+            </div>
+            <div id="methodFilterGroup" class="method-filter" role="group">
+              <button
+                class="method-filter-button active"
+                type="button"
+                data-method-filter="get"
+              >
+                GET
+              </button>
+              <button
+                class="method-filter-button"
+                type="button"
+                data-method-filter="write"
+              >
+                POST/PUT/PATCH
+              </button>
+              <button
+                class="method-filter-button"
+                type="button"
+                data-method-filter="other"
+              >
+                Other
+              </button>
+            </div>
+          </div>
+          <ol id="requestList" class="request-list"></ol>
+        </aside>
+        <section class="detail">
+          <header class="detail-header">
+            <div>
+              <div id="detailTitle" class="detail-title">
+                No JSON request selected
+              </div>
+              <div id="detailMeta" class="detail-meta">
+                Reload the page to capture startup requests.
+              </div>
+            </div>
+            <div class="tabs" role="group">
+              <input
+                id="payloadFilterInput"
+                class="payload-filter"
+                type="search"
+                placeholder="Filter JSON keys or values"
+                aria-label="Filter JSON payload"
+              />
+              <button id="expandTreeButton" class="tab" type="button">
+                Expand
+              </button>
+              <button id="collapseTreeButton" class="tab" type="button">
+                Collapse
+              </button>
+              <button id="copyButton" class="tab" type="button">Copy</button>
+            </div>
+          </header>
+          <div id="treeView" class="viewer tree-view"></div>
+        </section>
+      </div>
+    </main>
+    <script src="inspector.js"></script>
+  </body>
+</html>

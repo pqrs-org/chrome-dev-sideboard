@@ -1,6 +1,6 @@
 "use strict";
 
-importScripts("network-stats.js");
+importScripts("network-stats.js", "capture-background.js");
 
 chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })

@@ -1,12 +1,14 @@
 # chrome-page-title-bar
 
-A Chrome extension that displays the page title and passive network measurements in the side panel.
+A Chrome extension that displays the page title, network measurements, JSON responses, and website storage in the side panel.
 
 ## Features
 
 - Open the side panel directly from the extension icon
 - Read the full page title, with automatic line wrapping
 - Follow the active tab in each window
+- Switch to Fetch / Storage to inspect JSON fetch/XHR responses and local/session storage
+- Filter requests by URL, payload, method, or errors; search, expand, collapse, and copy JSON trees
 - Track request counts, requests in progress, HTTP errors, and connection failures
 - Click HTTP error or connection failure counts to inspect URLs and error codes (latest 100 failures per tab)
 - See average and longest completed request durations
@@ -23,8 +25,7 @@ Requires Chrome 116 or later.
 5. Reload the page to measure it from the beginning.
 
 HTTP and HTTPS traffic is observed automatically using the requested website permissions.
-No debugger connection or start button is needed. The extension does not inject scripts into pages,
-modify requests, or send additional requests to probe a site.
+No debugger connection or start button is needed. JSON capture wraps page fetch/XHR APIs at document start, including HTTP/HTTPS subframes. It reads response copies without changing request parameters or sending probe requests. Reload existing pages after installing or updating.
 
 ## Measurement scope
 
@@ -39,6 +40,12 @@ Only requests Chrome exposes and associates with a tab can be counted. Some cach
 Measurements use in-memory Chrome session storage. They survive background worker suspension and closing the panel, but are cleared when the tab closes, the browser restarts, or the extension reloads.
 
 When upgrading from the title chip version, reload pages that still show the old chip.
+
+## JSON and storage inspection
+
+The Fetch / Storage view integrates the tools from `tekezo/chrome-devtools`. JSON-like fetch/XHR responses are captured automatically, even when the panel is closed. Worker requests and requests made before the capture script starts are not included. Fetch capture stops reading at 1 MiB; saved payload text is limited to 100,000 characters per record. Each tab retains at most 80 records and 512,000 serialized characters in session memory, with older records evicted first. Chrome's shared session quota may further limit capture. Truncated payloads are shown as text. JSON trees display at most 5,000 nodes and 100 nesting levels.
+
+History resets on a new document and is removed on tab close or browser restart. Local Storage and Session Storage are read from the top frame on demand when opening the Storage view or using Refresh; these values are not persisted by the extension. Copy writes the selected payload or storage value to the clipboard. Captured data may contain private application data. Page scripts can interfere with or imitate capture events, so this is a development aid rather than a tamper-proof network trace.
 
 ## Development
 

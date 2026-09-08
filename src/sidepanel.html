@@ -8,7 +8,20 @@
     <link rel="stylesheet" href="sidepanel.css" />
   </head>
   <body>
-    <main>
+    <nav class="view-switch" aria-label="Panel view">
+      <button id="overviewView" type="button" aria-pressed="true">
+        Overview
+      </button>
+      <button id="inspectorView" type="button" aria-pressed="false">
+        Fetch / Storage
+      </button>
+    </nav>
+    <iframe
+      id="inspectorFrame"
+      title="JSON requests and website storage"
+      hidden
+    ></iframe>
+    <main id="overviewContent">
       <section class="page-details" aria-live="polite" aria-atomic="true">
         <h1 id="pageTitle">Loading…</h1>
       </section>
@@ -105,5 +118,6 @@
     </dialog>
     <script src="network-stats.js"></script>
     <script src="sidepanel.js"></script>
+    <script src="panel-views.js"></script>
   </body>
 </html>

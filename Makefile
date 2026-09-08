@@ -3,12 +3,14 @@ MAGICK := magick
 PRETTIER_FILES := \
 	manifest.json \
 	README.md \
+	PRIVACY.md \
+	store/*.md \
 	src/*.css \
 	src/*.html \
 	src/*.js \
 	tests/*.js
 
-.PHONY: format format-check icons test
+.PHONY: format format-check icons test package
 
 format:
 	$(PRETTIER) --write $(PRETTIER_FILES)
@@ -18,6 +20,9 @@ format-check:
 
 test:
 	node --test tests/*.test.js
+
+package: test format-check
+	python3 scripts/package.py
 
 icons:
 	$(MAGICK) icons/icon-128.png -resize 16x16 -depth 8 icons/icon-16.png

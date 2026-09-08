@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="280" viewBox="0 0 440 280">
+  <rect width="440" height="280" fill="#193b64"/>
+  <text x="220" y="40" text-anchor="middle" font-family="Arial" font-size="25" fill="#ffffff">Page Title Bar</text>
+  <rect x="24" y="60" width="392" height="196" rx="10" fill="#f3f6fa"/>
+  <path d="M34 60h372a10 10 0 0 1 10 10v18H24V70a10 10 0 0 1 10-10" fill="#d8e2ef"/>
+  <circle cx="42" cy="74" r="3" fill="#8196b0"/>
+  <circle cx="54" cy="74" r="3" fill="#8196b0"/>
+  <circle cx="66" cy="74" r="3" fill="#8196b0"/>
+  <rect x="42" y="110" width="114" height="8" rx="4" fill="#b7c8dc"/>
+  <rect x="42" y="132" width="156" height="5" rx="2" fill="#d3deeb"/>
+  <rect x="42" y="146" width="142" height="5" rx="2" fill="#d3deeb"/>
+  <rect x="42" y="173" width="76" height="61" rx="6" fill="#e0e8f2"/>
+  <rect x="128" y="173" width="76" height="61" rx="6" fill="#e0e8f2"/>
+  <path d="M228 88v168" stroke="#c4d2e2"/>
+  <rect x="240" y="101" width="164" height="141" rx="8" fill="#202124"/>
+  <text x="253" y="123" font-family="Arial" font-size="10" fill="#b3bdcb">CURRENT PAGE</text>
+  <text x="253" y="153" font-family="Arial" font-size="20" fill="#ffffff">A long page</text>
+  <text x="253" y="179" font-family="Arial" font-size="20" fill="#ffffff">title, fully</text>
+  <text x="253" y="205" font-family="Arial" font-size="20" fill="#ffffff">readable.</text>
+  <text x="253" y="226" font-family="Arial" font-size="10" fill="#b3bdcb">https://example.com</text>
+</svg>

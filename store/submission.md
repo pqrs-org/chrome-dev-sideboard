@@ -1,0 +1,76 @@
+# Chrome Web Store submission notes
+
+Prepared for version 1.1.0. These are draft answers based on the current code; they have not been submitted.
+
+## Single purpose
+
+Display the active page's title and a compact summary of its observed network activity in Chrome's side panel.
+
+## Permission justifications
+
+### tabs
+
+Reads the active tab's title for display and URL to determine network measurement availability. Follows the active tab within the panel's own window.
+
+### sidePanel
+
+Displays the page title and network summary in a panel opened from the extension icon.
+
+### webRequest and HTTP/HTTPS host permissions
+
+Passively observes requests for the arbitrary websites the user visits. Request lifecycle events provide counts, durations, HTTP errors, and connection failures. Response headers provide Content-Length estimates. Host access is needed for both requested URLs and initiators, including cross-origin resources. No blocking options are used; the extension does not modify requests or inject scripts.
+
+### webNavigation
+
+Identifies main-document commits and restored pages so measurements reset when the document changes. SPA history updates keep the existing measurement.
+
+### storage
+
+Uses only storage.session to retain per-tab measurements and temporary pending-request metadata across service worker restarts. Current document URLs and identifiers support navigation matching. Up to 100 recent failures per tab retain URLs, methods, timestamps, and error codes for the details dialog. Data is cleared when tabs close or Chrome restarts; no measurements are persisted to disk or synchronized.
+
+## Remote code
+
+Select “No, I am not using remote code.” All executable JavaScript and styles are packaged with the extension.
+
+## Data usage
+
+Disclose locally handled data as required by Chrome's policy:
+
+- Web history / web browsing activity: tab URLs and network activity are processed. The current main document URL and request metadata are retained temporarily in session memory.
+- Website content: the page title and response metadata are processed. Page bodies are not read.
+
+Review the current dashboard category definitions against PRIVACY.md. Raw response headers can contain sensitive information even though they are not retained. Do not claim that this extension handles no user data or only operates while its panel is open.
+
+The implementation does not sell data, use it for unrelated purposes, or use it for creditworthiness/lending. The publisher should review the policy before accepting the corresponding certifications.
+
+## Reviewer test instructions
+
+No login or paid account is required for the basic panel. Use Chrome 116 or later.
+
+1. Install the extension and open https://example.com/.
+2. Click the extension icon and reload the page. Verify the page title, request counts, and duration statistics.
+3. Switch between tabs and windows. Each panel follows its own window and each tab retains separate totals.
+4. On a test site, load a missing resource and a resource from an unreachable endpoint. Check HTTP errors and connection failures respectively. Click their counts to inspect URLs and error codes.
+5. Observe a response with Content-Length, a response without it, and cached responses. Verify that known sizes and unknown/cache counts remain separate.
+6. Reload or navigate to another document and verify reset. SPA history changes retain totals.
+7. Close and reopen the panel. Values remain in this session. Restart Chrome and reload a page to begin a new measurement.
+
+## Release checklist
+
+- Run `make package`; upload `dist/page-title-bar-1.1.0.zip` as a new item.
+- Complete publisher registration, verified contact information, two-step verification, and the trader/non-trader declaration using the publisher's actual circumstances.
+- Publish PRIVACY.md at the public URL in listing.md and verify the homepage/support links.
+- Paste the listing, single purpose, permission explanations, and test instructions.
+- Upload the existing 128x128 icon.
+- Supply at least one real product screenshot, 1280x800 or 640x400, showing the extension on a page without personal information.
+- Review and upload `store/promo-440x280.png`, a 440x280 promotional illustration. Its editable source is `store/promo.svg`; it is not a product screenshot.
+- Confirm price, visibility, distribution regions, and account disclosures with the publisher.
+- Review all fields, then submit for review. Approval and public availability depend on Chrome Web Store review.
+
+## Official references
+
+- https://developer.chrome.com/docs/webstore/prepare
+- https://developer.chrome.com/docs/webstore/publish/
+- https://developer.chrome.com/docs/webstore/cws-dashboard-privacy
+- https://developer.chrome.com/docs/webstore/program-policies/user-data-faq
+- https://developer.chrome.com/docs/webstore/images

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Page Title Bar</title>
+    <link rel="stylesheet" href="ui.css" />
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <main>
+      <section class="page-details" aria-live="polite" aria-atomic="true">
+        <h1 id="pageTitle">Loading…</h1>
+      </section>
+      <section class="network-details" aria-labelledby="networkHeading">
+        <h2 id="networkHeading">Network</h2>
+        <dl class="network-stats">
+          <div>
+            <dt>Requests</dt>
+            <dd id="requests">—</dd>
+          </div>
+          <div>
+            <dt>In progress</dt>
+            <dd id="pending">—</dd>
+          </div>
+          <div>
+            <dt>HTTP errors</dt>
+            <dd>
+              <button
+                id="httpErrors"
+                class="stat-button"
+                type="button"
+                aria-label="Show HTTP error details"
+                aria-haspopup="dialog"
+                disabled
+              >
+                —
+              </button>
+            </dd>
+          </div>
+          <div>
+            <dt>Connection failures</dt>
+            <dd>
+              <button
+                id="networkErrors"
+                class="stat-button"
+                type="button"
+                aria-label="Show connection failure details"
+                aria-haspopup="dialog"
+                disabled
+              >
+                —
+              </button>
+            </dd>
+          </div>
+          <div>
+            <dt>Average duration</dt>
+            <dd id="averageDuration">—</dd>
+          </div>
+          <div>
+            <dt>Longest duration</dt>
+            <dd id="maxDuration">—</dd>
+          </div>
+          <div>
+            <dt>Known response size</dt>
+            <dd id="responseSize">—</dd>
+          </div>
+          <div>
+            <dt>Unknown size</dt>
+            <dd id="unknownSizes">—</dd>
+          </div>
+          <div>
+            <dt>Cached / 304</dt>
+            <dd id="cached">—</dd>
+          </div>
+        </dl>
+        <p id="networkScope" class="hint">
+          Reload the page to measure requests.
+        </p>
+        <details>
+          <summary>About these measurements</summary>
+          <p class="hint">
+            Resets on reload or a new document. SPA navigation keeps the same
+            totals. Durations cover completed request chains, including
+            redirects, download time, and authentication waits; failed requests
+            are excluded.
+          </p>
+          <p class="hint">
+            Sizes total available Content-Length values from final, completed,
+            non-cached responses. They exclude headers, intermediate redirects,
+            failed downloads, and WebSocket traffic; this is not total network
+            usage.
+          </p>
+        </details>
+      </section>
+      <div id="status" class="status" role="status"></div>
+    </main>
+    <dialog id="failureDialog" aria-labelledby="failureTitle">
+      <div class="dialog-heading">
+        <h2 id="failureTitle">Connection failures</h2>
+        <button id="closeFailures" type="button">Close</button>
+      </div>
+      <p id="failureSummary" class="hint"></p>
+      <pre id="failureList"></pre>
+    </dialog>
+    <script src="network-stats.js"></script>
+    <script src="sidepanel.js"></script>
+  </body>
+</html>

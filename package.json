@@ -6,9 +6,11 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint . && ruff check scripts",
     "test": "pnpm run build && node --test tests/*.test.js",
-    "format": "prettier --write . && ruff format scripts",
+    "format": "pnpm run format:write",
     "format:check": "prettier --check . && ruff format --check scripts",
-    "check": "pnpm run typecheck && pnpm run lint && pnpm test && pnpm run format:check"
+    "check": "pnpm run typecheck && pnpm run lint && pnpm test && pnpm run format:check",
+    "format:write": "prettier --write . && ruff format scripts",
+    "postinstall": "pnpm run format:write"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

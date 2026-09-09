@@ -43,7 +43,7 @@ Development requires Node.js 22.13 or later, pnpm, Python 3, and Ruff. Run `pnpm
 - `make build` compiles TypeScript and copies extension assets into `build/`. Rebuild after source changes, then reload the extension in Chrome.
 - `make check` runs type checking, ESLint, Ruff, tests, and formatting checks.
 - `make test` builds the extension and runs the tests.
-- `make format` formats Python scripts with Ruff and other source files and documentation with Prettier.
+- `make format` (or `pnpm format:write`) formats Python scripts with Ruff and other source files and documentation with Prettier. Formatting also runs automatically after `pnpm install` and `pnpm update`.
 - `make package` runs checks and creates the upload ZIP in `dist/`.
 
 See the [store listing](store/listing.md) and [submission notes](store/submission.md) for publication materials.

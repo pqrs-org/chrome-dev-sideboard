@@ -27,7 +27,7 @@ const failureList = document.querySelector('#failureList')
 let displayedState
 let failureKind
 
-function renderFailures() {
+const renderFailures = () => {
   const items = (displayedState?.failureDetails || [])
     .filter((item) => item.kind === failureKind)
     .slice()
@@ -56,7 +56,7 @@ document
   .querySelector('#closeFailures')
   .addEventListener('click', () => failureDialog.close())
 
-function renderNetwork(state) {
+const renderNetwork = (state) => {
   if (
     !state ||
     (displayedState && displayedState.startedAt !== state.startedAt)
@@ -93,7 +93,7 @@ function renderNetwork(state) {
     networkFields[key].textContent = String(value)
 }
 
-async function refreshNetwork(tab) {
+const refreshNetwork = async (tab) => {
   currentTabId = tab?.id
   const version = ++networkVersion
   renderNetwork(null)
@@ -126,7 +126,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 let panelWindowId
 let refreshVersion = 0
 
-async function refreshPage() {
+const refreshPage = async () => {
   if (panelWindowId === undefined) return
   const version = ++refreshVersion
   try {

@@ -41,7 +41,7 @@ Select “No, I am not using remote code.” All executable JavaScript and style
 Disclose locally handled data as required by Chrome's policy:
 
 - Web history / web browsing activity: tab URLs and network activity are processed. The current main document URL and request metadata are retained temporarily in session memory.
-- Website content: the page title, page metadata, and response metadata are processed. Page metadata updates when relevant tags change. Image previews load from page-specified image hosts without a Referer header. Local Storage and Session Storage values refresh about once per second while the Storage view is visible; polling pauses while editing. These snapshots are not persisted by the extension. Such content can include personal information or authentication tokens; review applicable dashboard categories.
+- Website content: the page title, page metadata, and response metadata are processed. Page metadata updates when relevant tags change. Image previews load from page-specified image hosts without browser credentials. Local Storage and Session Storage values refresh about once per second while the Storage view is visible; polling pauses while editing. These snapshots are not persisted by the extension. Such content can include personal information or authentication tokens; review applicable dashboard categories.
 
 Review the current dashboard category definitions against PRIVACY.md. Raw response headers can contain sensitive information even though they are not retained. Do not claim that this extension handles no user data or only operates while its panel is open.
 
@@ -49,7 +49,7 @@ The implementation does not sell data, use it for unrelated purposes, or use it 
 
 ## Reviewer test instructions
 
-No login or paid account is required for the basic panel. Use Chrome 116 or later.
+No login or paid account is required for the basic panel. Use Chrome 142 or later.
 
 1. Install the extension and open https://example.com/.
 2. Click the extension icon and reload the page. Verify the page title, request counts, and duration statistics.

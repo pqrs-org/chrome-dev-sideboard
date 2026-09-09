@@ -51,7 +51,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return true
 })
 
-function readStorageSnapshot() {
+const readStorageSnapshot = () => {
   return {
     url: location.href,
     origin: location.origin,
@@ -61,7 +61,7 @@ function readStorageSnapshot() {
   }
 }
 
-function readStorageArea(name) {
+const readStorageArea = (name) => {
   const entries = []
   let storage
 
@@ -87,7 +87,7 @@ function readStorageArea(name) {
   return entries
 }
 
-function readPageMetadata() {
+const readPageMetadata = () => {
   const canonical = [...document.querySelectorAll('link[rel]')]
     .filter((link) => link.rel.toLowerCase().split(/\s+/).includes('canonical'))
     .map((link) => ({
@@ -115,7 +115,7 @@ function readPageMetadata() {
 }
 
 let metadataObserver
-function observePageMetadata() {
+const observePageMetadata = () => {
   if (metadataObserver) return
   let timer
   const relevant = (node) =>

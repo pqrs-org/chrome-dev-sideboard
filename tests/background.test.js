@@ -5,7 +5,7 @@ const fs = require('node:fs')
 const vm = require('node:vm')
 const stats = require('../src/network-stats.js')
 
-function event() {
+const event = () => {
   let callback
   return {
     addListener(fn) {
@@ -16,7 +16,7 @@ function event() {
     },
   }
 }
-function worker(stored) {
+const worker = (stored) => {
   const api = {
     sidePanel: { setPanelBehavior: async () => {} },
     storage: {
@@ -49,6 +49,7 @@ function worker(stored) {
 
 test('manifest uses passive network permissions and opens a side panel', () => {
   const manifest = require('../manifest.json')
+  assert.equal(manifest.minimum_chrome_version, '142')
   assert.deepEqual(manifest.permissions, [
     'tabs',
     'sidePanel',

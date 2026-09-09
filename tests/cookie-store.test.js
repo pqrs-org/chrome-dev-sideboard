@@ -3,7 +3,7 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const vm = require('node:vm')
 const fs = require('node:fs')
-function setup() {
+const setup = () => {
   let documentId = 'doc'
   let cookies = [
     {

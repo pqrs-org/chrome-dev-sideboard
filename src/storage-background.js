@@ -2,12 +2,12 @@
   'use strict'
   const prefix = 'dev-sideboard:'
   const ports = new Set()
-  function post(port, message) {
+  const post = (port, message) => {
     try {
       port.postMessage(message)
     } catch (_) {}
   }
-  async function storageSnapshot(tabId, frame) {
+  const storageSnapshot = async (tabId, frame) => {
     const snapshot = await chrome.tabs.sendMessage(
       tabId,
       { type: prefix + 'get-storage' },

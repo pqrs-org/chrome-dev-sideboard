@@ -28,9 +28,9 @@ The Page tab displays Canonical URLs, descriptions, Open Graph, and Twitter Card
 
 The Storage and Cookies tabs provide filtering, JSON tree expansion, raw text viewing, editing, and deletion. Values refresh automatically while the inspector is visible.
 
-The extension processes page titles, URLs, page metadata, network metadata, and inspected storage and cookie values. It does not capture response bodies. Network measurements stay in Chrome session memory and clear when the tab closes or Chrome restarts. Storage and cookie snapshots are not persisted by the extension. No inspection data is sent to the developer. Image previews make ordinary image requests to the hosts specified by the page, without a Referer header.
+The extension processes page titles, URLs, page metadata, network metadata, and inspected storage and cookie values. It does not capture response bodies. Network measurements stay in Chrome session memory and clear when the tab closes or Chrome restarts. Storage and cookie snapshots are not persisted by the extension. No inspection data is sent to the developer. Image previews make ordinary image requests to the hosts specified by the page, without browser credentials.
 
-Requires Chrome 116 or later.
+Requires Chrome 142 or later.
 
 ## Category and language
 

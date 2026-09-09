@@ -20,7 +20,7 @@ const CookieStore = (() => {
       c.session,
       c.expirationDate,
     ])
-  async function read(tabId) {
+  const read = async (tabId) => {
     const frame = await chrome.webNavigation.getFrame({ tabId, frameId: 0 })
     if (!frame?.documentId || !/^https?:/.test(frame.url))
       throw new Error('Cookies are unavailable on this page.')
@@ -42,7 +42,7 @@ const CookieStore = (() => {
     cookies = [...new Map(cookies.map((c) => [identity(c), c])).values()]
     return { documentId: frame.documentId, url: frame.url, cookies }
   }
-  async function write(tabId, edit, deleting = false) {
+  const write = async (tabId, edit, deleting = false) => {
     const snapshot = await read(tabId)
     if (snapshot.documentId !== edit.documentId)
       throw new Error('The page changed. Refresh cookies and edit again.')

@@ -9,7 +9,7 @@ chrome.sidePanel
 const { keyForTab, normalizeEvent, reduce } = PageNetworkStats
 const queues = new Map()
 
-function enqueue(tabId, action) {
+const enqueue = (tabId, action) => {
   if (tabId < 0) return
   const next = (queues.get(tabId) || Promise.resolve())
     .then(action)
@@ -20,7 +20,7 @@ function enqueue(tabId, action) {
   queues.set(tabId, next)
 }
 
-function record(kind, details) {
+const record = (kind, details) => {
   if (details.tabId < 0) return
   // Extract only measurements before queuing; do not retain header contents.
   const event = normalizeEvent(kind, details)

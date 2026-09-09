@@ -5,7 +5,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const vm = require('node:vm')
 
-async function createPanel() {
+const createPanel = async () => {
   const elements = new Map()
   const listeners = {}
   const queries = []

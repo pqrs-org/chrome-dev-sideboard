@@ -27,7 +27,7 @@
       "32": "icons/icon-32.png"
     }
   },
-  "minimum_chrome_version": "116",
+  "minimum_chrome_version": "142",
   "side_panel": {
     "default_path": "src/sidepanel.html"
   },
@@ -39,5 +39,8 @@
       "run_at": "document_start",
       "world": "ISOLATED"
     }
-  ]
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; img-src 'self' blob:; connect-src https:"
+  }
 }

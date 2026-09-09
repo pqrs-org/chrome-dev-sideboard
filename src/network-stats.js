@@ -1,8 +1,8 @@
-;(function (root) {
+;((root) => {
   'use strict'
 
   const keyForTab = (tabId) => `network:${tabId}`
-  function withoutHash(url) {
+  const withoutHash = (url) => {
     try {
       const parsed = new URL(url)
       parsed.hash = ''
@@ -14,7 +14,7 @@
     }
   }
 
-  function normalizeEvent(kind, details) {
+  const normalizeEvent = (kind, details) => {
     const headers = details.responseHeaders || []
     const length = headers.find(
       (h) => h.name.toLowerCase() === 'content-length',
@@ -48,7 +48,7 @@
     }
   }
 
-  function createState(event, scope = 'partial') {
+  const createState = (event, scope = 'partial') => {
     return {
       startedAt: event.timeStamp,
       scope,
@@ -73,7 +73,7 @@
     }
   }
 
-  function reduce(previous, event) {
+  const reduce = (previous, event) => {
     let state = previous
     if (event.kind === 'commit') {
       if (!/^https?:/.test(event.url)) return null
@@ -165,7 +165,7 @@
     return state
   }
 
-  function formatBytes(value) {
+  const formatBytes = (value) => {
     const units = ['B', 'KiB', 'MiB', 'GiB']
     let index = 0
     while (value >= 1024 && index < units.length - 1) {

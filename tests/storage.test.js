@@ -4,7 +4,7 @@ const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const vm = require('node:vm')
 const tick = () => new Promise(setImmediate)
-function event() {
+const event = () => {
   const listeners = []
   return {
     addListener: (fn) => listeners.push(fn),
@@ -14,7 +14,7 @@ function event() {
     emit: (...args) => listeners.forEach((fn) => fn(...args)),
   }
 }
-function worker(stored = {}) {
+const worker = (stored = {}) => {
   let documentId = 'doc-1'
   const runtime = {
     id: 'extension',

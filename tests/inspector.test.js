@@ -58,6 +58,14 @@ test('inspector opens Page, rejects stale metadata, refreshes scoped data, filte
     fs.readFileSync(require.resolve('../src/inspector.js'), 'utf8'),
     {
       CookieStore: require('../src/cookie-store.js'),
+      ImagePreviews: {
+        createBatch: () => ({
+          dispose() {},
+          load(url, ready) {
+            ready('blob:preview')
+          },
+        }),
+      },
       URL,
       console,
       document: {
@@ -70,6 +78,7 @@ test('inspector opens Page, rejects stale metadata, refreshes scoped data, filte
         createTextNode: (text) => ({ textContent: text }),
       },
       window: {
+        addEventListener() {},
         setInterval: (fn) => {
           poll = fn
         },
@@ -127,7 +136,12 @@ test('inspector opens Page, rejects stale metadata, refreshes scoped data, filte
     requestId,
     snapshot: {
       canonical: [{ key: 'Canonical URL', value: 'https://example.com/' }],
-      openGraph: [{ key: 'og:title', value: '<script>example</script>' }],
+      openGraph: [
+        { key: 'og:title', value: '<script>example</script>' },
+        { key: 'og:video:tag', value: 'Music' },
+        { key: 'og:video:tag', value: '<b>Live</b>' },
+        { key: 'og:video:tag', value: 'Music' },
+      ],
       twitter: [{ key: 'twitter:title', value: 'Twitter title' }],
     },
   })
@@ -138,6 +152,13 @@ test('inspector opens Page, rejects stale metadata, refreshes scoped data, filte
   assert.equal(
     elements.get('metadataView').children[5].children[1].textContent,
     '<script>example</script>',
+  )
+  assert.equal(elements.get('metadataView').children[5].children.length, 4)
+  assert.deepEqual(
+    JSON.parse(
+      elements.get('metadataView').children[5].children[3].textContent,
+    ),
+    ['Music', '<b>Live</b>', 'Music'],
   )
   assert.equal(elements.get('metadataView').children.length, 6)
   assert.equal(
@@ -184,9 +205,8 @@ test('inspector opens Page, rejects stale metadata, refreshes scoped data, filte
     },
   })
   const imageEntries = elements.get('metadataView').children[5].children
-  const image = imageEntries[1].children[0]
-  assert.equal(image.src, 'https://example.com/base/preview.png')
-  assert.equal(image.referrerPolicy, 'no-referrer')
+  const image = imageEntries[1].children[1]
+  assert.equal(image.src, 'blob:preview')
   assert.equal(imageEntries[3].children.length, 0)
   assert.equal(imageEntries[5].children.length, 0)
   assert.equal(imageEntries[7].children.length, 0)

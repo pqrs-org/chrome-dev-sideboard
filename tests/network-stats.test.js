@@ -7,7 +7,7 @@ const {
   formatBytes,
 } = require('../src/network-stats.js')
 
-function tracker() {
+const tracker = () => {
   let state
   return {
     get state() {

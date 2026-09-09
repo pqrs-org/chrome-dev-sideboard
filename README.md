@@ -17,7 +17,7 @@ A Chrome extension that displays the page title, metadata, network measurements,
 
 ## Installation
 
-Requires Chrome 116 or later.
+Requires Chrome 142 or later.
 
 1. Open `chrome://extensions` in Chrome.
 2. Enable **Developer mode**.
@@ -42,7 +42,7 @@ Measurements use in-memory Chrome session storage. They survive background worke
 
 ## Page metadata
 
-The Page tab shows Canonical URLs, descriptions, Open Graph, and Twitter Card tags from the active page’s DOM. Open Graph takes priority; Twitter Card is shown only when Open Graph tags are absent. Duplicate tags are preserved and relative canonical links are resolved against the document base URL. Metadata is read when the Page tab opens and updates when relevant tags change. Open Graph and Twitter images appear as previews below their URLs; loading previews requests those images from their hosts without sending a Referer header.
+The Page tab shows Canonical URLs, descriptions, Open Graph, and Twitter Card tags from the active page’s DOM. Open Graph takes priority; Twitter Card is shown only when Open Graph tags are absent. Duplicate tags are preserved and relative canonical links are resolved against the document base URL. Metadata is read when the Page tab opens and updates when relevant tags change. Open Graph and Twitter images appear as previews below their URLs; previews are fetched without browser credentials and displayed using Blob URLs. Only HTTPS PNG, JPEG, GIF, WebP, and AVIF responses are accepted; redirects and referrer policy use browser defaults, retaining credential omission, the public address-space restriction, and the HTTPS-only extension CSP. Each view allows up to 6 previews, with 2 concurrent requests, an 8-second timeout, and a 5 MiB streamed byte limit per image. HTTP images and unsupported images remain available as URL text. Switching views cancels pending requests and releases preview Blob URLs. Preview requests use `targetAddressSpace: "public"` so Chrome rejects local-network and loopback destinations.
 
 ## Storage and cookie inspection
 
@@ -54,7 +54,7 @@ Auto-refresh pauses while editing a value. It reads website storage locally and 
 
 Storage values can be edited using Edit and saved explicitly. Non-JSON values, including empty strings and whitespace, are saved exactly as entered. Save updates only the selected Local Storage or Session Storage key on the inspected document; invalid JSON and values changed since inspection are rejected. Edits are saved to the website’s storage, not to extension history. The page may need to be reloaded to use the new value.
 
-Cookies matching the active page URL are listed in Cookies, including HttpOnly cookies. Edit saves the raw value without decoding it, preserving domain, path, expiry, Secure, HttpOnly, SameSite, cookie store, and partition attributes. Cookies refresh while the Cookies tab is visible and are not retained in extension history. Partitioned cookies are included when Chrome provides `cookies.getPartitionKey` (Chrome 132+); older supported versions show unpartitioned cookies.
+Cookies matching the active page URL are listed in Cookies, including HttpOnly cookies. Edit saves the raw value without decoding it, preserving domain, path, expiry, Secure, HttpOnly, SameSite, cookie store, and partition attributes. Cookies refresh while the Cookies tab is visible and are not retained in extension history. Partitioned cookies are included using `cookies.getPartitionKey`.
 
 Delete removes only the selected Local Storage / Session Storage key or Cookie. Changes since inspection are rejected. Cookie deletion expires the exact domain, path, store, and partition, preserving other same-name cookies. Deletions apply to website/browser data and are not saved in extension history.
 

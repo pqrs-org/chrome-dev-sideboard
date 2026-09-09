@@ -27,7 +27,10 @@ const worker = () => {
     getFrame: async () => ({ documentId }),
   }
   vm.runInNewContext(
-    fs.readFileSync(require.resolve('../src/storage-background.js'), 'utf8'),
+    fs.readFileSync(
+      require.resolve('../build/src/storage-background.js'),
+      'utf8',
+    ),
     {
       URL,
       console,
@@ -64,7 +67,7 @@ test('storage edits update only the selected key and reject invalid JSON or stal
   })
   let listener
   vm.runInNewContext(
-    fs.readFileSync(require.resolve('../src/storage-content.js'), 'utf8'),
+    fs.readFileSync(require.resolve('../build/src/storage-content.js'), 'utf8'),
     {
       window: {
         addEventListener() {
@@ -290,7 +293,7 @@ test('page metadata preserves duplicates and reads current DOM without accessing
     },
   }
   vm.runInNewContext(
-    fs.readFileSync(require.resolve('../src/storage-content.js'), 'utf8'),
+    fs.readFileSync(require.resolve('../build/src/storage-content.js'), 'utf8'),
     context,
   )
   let snapshot

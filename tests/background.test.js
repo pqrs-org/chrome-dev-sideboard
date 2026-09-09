@@ -3,7 +3,7 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
 const vm = require('node:vm')
-const stats = require('../src/network-stats.js')
+const stats = require('../build/src/network-stats.js')
 
 const event = () => {
   let callback
@@ -41,14 +41,14 @@ const worker = (stored) => {
     ),
   }
   vm.runInNewContext(
-    fs.readFileSync(require.resolve('../src/background.js'), 'utf8'),
+    fs.readFileSync(require.resolve('../build/src/background.js'), 'utf8'),
     { chrome: api, PageNetworkStats: stats, importScripts() {}, console },
   )
   return api
 }
 
 test('manifest uses passive network permissions and opens a side panel', () => {
-  const manifest = require('../manifest.json')
+  const manifest = require('../build/manifest.json')
   assert.equal(manifest.minimum_chrome_version, '142')
   assert.deepEqual(manifest.permissions, [
     'tabs',
@@ -64,7 +64,9 @@ test('manifest uses passive network permissions and opens a side panel', () => {
   assert.notEqual(manifest.content_scripts[0].all_frames, true)
   assert.deepEqual(manifest.content_scripts[0].js, ['src/storage-content.js'])
   assert.ok(
-    fs.existsSync(require.resolve(`../${manifest.side_panel.default_path}`)),
+    fs.existsSync(
+      require.resolve(`../build/${manifest.side_panel.default_path}`),
+    ),
   )
 })
 

@@ -55,9 +55,9 @@ test('inspector opens Page, rejects stale metadata, refreshes scoped data, filte
   const queries = []
   let poll
   vm.runInNewContext(
-    fs.readFileSync(require.resolve('../src/inspector.js'), 'utf8'),
+    fs.readFileSync(require.resolve('../build/src/inspector.js'), 'utf8'),
     {
-      CookieStore: require('../src/cookie-store.js'),
+      ExtensionCookies: require('../build/src/cookie-store.js'),
       ImagePreviews: {
         createBatch: () => ({
           dispose() {},
@@ -252,8 +252,9 @@ test('inspector opens Page, rejects stale metadata, refreshes scoped data, filte
   treeView.listeners.toggle()
   assert.equal(elements.get('toggleTreeButton').disabled, true)
 
-  if (elements.get('rawButton')['aria-pressed'] !== 'true')
+  if (elements.get('rawButton')['aria-pressed'] !== 'true') {
     elements.get('rawButton').listeners.click()
+  }
   assert.equal(
     elements.get('treeView').children[0].textContent,
     '{"hello":"world"}',
@@ -272,8 +273,9 @@ test('inspector opens Page, rejects stale metadata, refreshes scoped data, filte
       session: [],
     },
   })
-  if (elements.get('rawButton')['aria-pressed'] !== 'true')
+  if (elements.get('rawButton')['aria-pressed'] !== 'true') {
     elements.get('rawButton').listeners.click()
+  }
   assert.equal(elements.get('treeView').children[0].textContent, 'test')
   assert.equal(elements.get('editStorageButton').disabled, false)
   elements.get('editStorageButton').listeners.click()
@@ -343,8 +345,9 @@ test('inspector opens Page, rejects stale metadata, refreshes scoped data, filte
     },
   })
   assert.equal(elements.get('storageEditor').open, false)
-  if (elements.get('rawButton')['aria-pressed'] !== 'true')
+  if (elements.get('rawButton')['aria-pressed'] !== 'true') {
     elements.get('rawButton').listeners.click()
+  }
   assert.equal(
     JSON.parse(elements.get('treeView').children[0].textContent).enabled,
     true,
@@ -383,7 +386,7 @@ test('inspector opens Page, rejects stale metadata, refreshes scoped data, filte
   assert.equal(sent.at(-1).value, 'new-token')
   assert.equal(
     sent.at(-1).expectedCookie,
-    require('../src/cookie-store.js').fingerprint(cookie),
+    require('../build/src/cookie-store.js').fingerprint(cookie),
   )
   receive({
     type: 'storageSaved',

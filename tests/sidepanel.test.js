@@ -29,9 +29,9 @@ const createPanel = async () => {
     }
   }
   vm.runInNewContext(
-    fs.readFileSync(require.resolve('../src/sidepanel.js'), 'utf8'),
+    fs.readFileSync(require.resolve('../build/src/sidepanel.js'), 'utf8'),
     {
-      PageNetworkStats: require('../src/network-stats.js'),
+      PageNetworkStats: require('../build/src/network-stats.js'),
       document: {
         querySelector: (selector) => {
           const element = {
@@ -158,7 +158,7 @@ test('unreadable tabs and errors clear stale page details', async () => {
 
 test('network updates only apply to the active tab and clear on tab switch', async () => {
   const panel = await createPanel()
-  const stats = require('../src/network-stats.js')
+  const stats = require('../build/src/network-stats.js')
   const state = stats.reduce(
     undefined,
     stats.normalizeEvent('start', {
@@ -197,7 +197,7 @@ test('network updates do not appear on unsupported pages', async () => {
 
 test('failure dialog filters categories, updates live, and closes on tab switch', async () => {
   const panel = await createPanel()
-  const stats = require('../src/network-stats.js')
+  const stats = require('../build/src/network-stats.js')
   const state = stats.reduce(
     undefined,
     stats.normalizeEvent('start', {

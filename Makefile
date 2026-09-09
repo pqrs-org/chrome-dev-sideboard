@@ -1,30 +1,29 @@
-PRETTIER := prettier
-RUFF := ruff
 MAGICK := magick
-PRETTIER_FILES := \
-	manifest.json \
-	README.md \
-	PRIVACY.md \
-	store/*.md \
-	src/*.css \
-	src/*.html \
-	src/*.js \
-	tests/*.js
 
-.PHONY: format format-check icons test package
+.PHONY: build typecheck lint check format format-check icons test package
+
+build:
+	pnpm run build
+
+typecheck:
+	pnpm run typecheck
+
+lint:
+	pnpm run lint
+
+check:
+	pnpm run check
 
 format:
-	$(PRETTIER) --write $(PRETTIER_FILES)
-	$(RUFF) format .
+	pnpm run format
 
 format-check:
-	$(PRETTIER) --check $(PRETTIER_FILES)
-	$(RUFF) format --check .
+	pnpm run format:check
 
 test:
-	node --test tests/*.test.js
+	pnpm test
 
-package: test format-check
+package: check
 	python3 scripts/package.py
 
 icons:

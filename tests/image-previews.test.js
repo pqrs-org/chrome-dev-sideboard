@@ -32,7 +32,7 @@ const setup = (fetch) => {
     },
   }
   vm.runInNewContext(
-    fs.readFileSync(require.resolve('../src/image-previews.js'), 'utf8'),
+    fs.readFileSync(require.resolve('../build/src/image-previews.js'), 'utf8'),
     context,
   )
   return {
@@ -80,12 +80,13 @@ test('images reject HTTP, URL credentials, SVG and oversized streamed bodies', a
     'http://example.com/a',
     'https://user:pass@example.com/a',
     'file:///a',
-  ])
+  ]) {
     s.batch.load(
       url,
       () => assert.fail('unexpected image'),
       () => {},
     )
+  }
   await tick()
   assert.equal(fetches, 0)
   for (const result of [
@@ -125,12 +126,13 @@ test('image concurrency, count, disposal and timeout are bounded', async () => {
         )
       }),
   )
-  for (let i = 0; i < 8; i++)
+  for (let i = 0; i < 8; i++) {
     s.batch.load(
       `https://example.com/${i}`,
       () => assert.fail('unexpected image'),
       (e) => errors.push(e),
     )
+  }
   assert.equal(pending.length, 2)
   assert.equal(errors.length, 2)
   s.batch.dispose()
@@ -151,7 +153,9 @@ test('image concurrency, count, disposal and timeout are bounded', async () => {
     () => assert.fail('unexpected image'),
     (e) => errors.push(e),
   )
-  for (const fn of t.timers) fn()
+  for (const fn of t.timers) {
+    fn()
+  }
   await tick()
   assert.equal(errors.at(-1), 'Image request timed out')
   assert.equal(t.timers.size, 0)

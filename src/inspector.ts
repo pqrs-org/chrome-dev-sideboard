@@ -4,7 +4,8 @@ const FILTER_DEBOUNCE_MS = 120
 
 let previewBatch = ImagePreviews.createBatch()
 
-let port
+let port: chrome.runtime.Port
+const postPanelRequest = (message: PanelRequest) => port.postMessage(message)
 const connectPanel = () => {
   port = chrome.runtime.connect({ name: PANEL_PORT_NAME })
   port.onMessage.addListener(handlePanelMessage)
@@ -12,7 +13,7 @@ const connectPanel = () => {
     window.setTimeout(() => {
       connectPanel()
       if (typeof state.tabId === 'number') {
-        port.postMessage({ type: 'init', tabId: state.tabId })
+        postPanelRequest({ type: 'init', tabId: state.tabId })
         snapshotPendingUntil = 0
         requestSnapshot()
       }
@@ -24,7 +25,16 @@ let jsonFilterTimer = 0
 let snapshotRequestId = 0
 let snapshotPendingUntil = 0
 
-const state = {
+const state: {
+  tabId: number | null
+  mode: 'metadata' | 'storage' | 'cookies'
+  metadata: MetadataSnapshot | null
+  filter: string
+  jsonFilter: string
+  rawView: boolean
+  storage: ReturnType<typeof normalizeStorageSnapshot>
+  selectedStorageId: string | null
+} = {
   tabId: null,
   mode: 'metadata',
   metadata: null,
@@ -32,6 +42,9 @@ const state = {
   jsonFilter: '',
   rawView: false,
   storage: {
+    documentId: '',
+    cookies: [],
+    cookieError: '',
     url: '',
     origin: '',
     timestamp: null,
@@ -42,34 +55,58 @@ const state = {
   selectedStorageId: null,
 }
 
-let storageEdit = null
+let storageEdit: StorageEdit | null = null
 let saveSequence = 0
 const elements = {
-  metadataModeButton: document.getElementById('metadataModeButton'),
-  metadataView: document.getElementById('metadataView'),
-  storageWorkspace: document.getElementById('storageWorkspace'),
-  deleteStorageButton: document.getElementById('deleteStorageButton'),
-  editStorageButton: document.getElementById('editStorageButton'),
-  storageEditor: document.getElementById('storageEditor'),
-  storageEditorTitle: document.getElementById('storageEditorTitle'),
-  storageValueInput: document.getElementById('storageValueInput'),
-  storageEditStatus: document.getElementById('storageEditStatus'),
-  cancelStorageEdit: document.getElementById('cancelStorageEdit'),
-  saveStorageEdit: document.getElementById('saveStorageEdit'),
-  storageModeButton: document.getElementById('storageModeButton'),
-  cookiesModeButton: document.getElementById('cookiesModeButton'),
-  filterInput: document.getElementById('filterInput'),
-  countLabel: document.getElementById('countLabel'),
-  entryList: document.getElementById('entryList'),
-  detailTitle: document.getElementById('detailTitle'),
-  detailMeta: document.getElementById('detailMeta'),
-  jsonFilterInput: document.getElementById('jsonFilterInput'),
-  toggleTreeButton: document.getElementById('toggleTreeButton'),
-  rawButton: document.getElementById('rawButton'),
-  treeView: document.getElementById('treeView'),
+  metadataModeButton: document.getElementById(
+    'metadataModeButton',
+  ) as HTMLButtonElement,
+  metadataView: document.getElementById('metadataView') as HTMLElement,
+  storageWorkspace: document.getElementById('storageWorkspace') as HTMLElement,
+  deleteStorageButton: document.getElementById(
+    'deleteStorageButton',
+  ) as HTMLButtonElement,
+  editStorageButton: document.getElementById(
+    'editStorageButton',
+  ) as HTMLButtonElement,
+  storageEditor: document.getElementById('storageEditor') as HTMLDialogElement,
+  storageEditorTitle: document.getElementById(
+    'storageEditorTitle',
+  ) as HTMLElement,
+  storageValueInput: document.getElementById(
+    'storageValueInput',
+  ) as HTMLTextAreaElement,
+  storageEditStatus: document.getElementById(
+    'storageEditStatus',
+  ) as HTMLElement,
+  cancelStorageEdit: document.getElementById(
+    'cancelStorageEdit',
+  ) as HTMLButtonElement,
+  saveStorageEdit: document.getElementById(
+    'saveStorageEdit',
+  ) as HTMLButtonElement,
+  storageModeButton: document.getElementById(
+    'storageModeButton',
+  ) as HTMLButtonElement,
+  cookiesModeButton: document.getElementById(
+    'cookiesModeButton',
+  ) as HTMLButtonElement,
+  filterInput: document.getElementById('filterInput') as HTMLInputElement,
+  countLabel: document.getElementById('countLabel') as HTMLElement,
+  entryList: document.getElementById('entryList') as HTMLElement,
+  detailTitle: document.getElementById('detailTitle') as HTMLElement,
+  detailMeta: document.getElementById('detailMeta') as HTMLElement,
+  jsonFilterInput: document.getElementById(
+    'jsonFilterInput',
+  ) as HTMLInputElement,
+  toggleTreeButton: document.getElementById(
+    'toggleTreeButton',
+  ) as HTMLButtonElement,
+  rawButton: document.getElementById('rawButton') as HTMLButtonElement,
+  treeView: document.getElementById('treeView') as HTMLElement,
 }
 
-const handlePanelMessage = (message) => {
+const handlePanelMessage = (message: PanelMessage) => {
   if (message.type === 'metadataChanged') {
     if (message.tabId === state.tabId && state.mode === 'metadata') {
       snapshotPendingUntil = 0
@@ -81,8 +118,9 @@ const handlePanelMessage = (message) => {
     if (
       message.tabId !== state.tabId ||
       message.requestId !== snapshotRequestId
-    )
+    ) {
       return
+    }
     snapshotPendingUntil = 0
     if (JSON.stringify(state.metadata) !== JSON.stringify(message.snapshot)) {
       state.metadata = message.snapshot
@@ -95,8 +133,9 @@ const handlePanelMessage = (message) => {
       !storageEdit ||
       message.tabId !== storageEdit.tabId ||
       message.requestId !== storageEdit.requestId
-    )
+    ) {
       return
+    }
     elements.saveStorageEdit.disabled = false
     elements.cancelStorageEdit.disabled = false
     elements.storageValueInput.disabled = false
@@ -114,8 +153,9 @@ const handlePanelMessage = (message) => {
     state.storage = normalizeStorageSnapshot(message.snapshot)
     storageEdit = null
     elements.storageEditor.close()
-    if (!getSelectedStorageEntry())
+    if (!getSelectedStorageEntry()) {
       state.selectedStorageId = getStorageEntries().at(0)?.id || null
+    }
     render()
     return
   }
@@ -127,14 +167,19 @@ const handlePanelMessage = (message) => {
     if (
       message.requestId !== undefined &&
       message.requestId !== snapshotRequestId
-    )
+    ) {
       return
+    }
     snapshotPendingUntil = 0
-    if (storageEdit) return
+    if (storageEdit) {
+      return
+    }
     const nextStorage = normalizeStorageSnapshot(message.snapshot)
-    const { timestamp: oldTime, ...oldValues } = state.storage
-    const { timestamp: newTime, ...newValues } = nextStorage
-    if (JSON.stringify(oldValues) === JSON.stringify(newValues)) return
+    const { timestamp: _oldTime, ...oldValues } = state.storage
+    const { timestamp: _newTime, ...newValues } = nextStorage
+    if (JSON.stringify(oldValues) === JSON.stringify(newValues)) {
+      return
+    }
     state.storage = nextStorage
     if (
       !getStorageEntries().some((entry) => entry.id === state.selectedStorageId)
@@ -145,7 +190,7 @@ const handlePanelMessage = (message) => {
   }
 }
 
-const selectMode = (mode) => {
+const selectMode = (mode: typeof state.mode) => {
   state.mode = mode
   snapshotPendingUntil = 0
   snapshotRequestId++
@@ -154,7 +199,7 @@ const selectMode = (mode) => {
   render()
 }
 
-let inspectorWindowId
+let inspectorWindowId: number | undefined
 let tabQueryVersion = 0
 
 const initialize = async () => {
@@ -162,7 +207,9 @@ const initialize = async () => {
   await selectCurrentTab()
 
   chrome.tabs.onActivated.addListener(({ windowId }) => {
-    if (windowId === inspectorWindowId) selectCurrentTab()
+    if (windowId === inspectorWindowId) {
+      selectCurrentTab()
+    }
   })
 
   chrome.tabs.onUpdated.addListener((tabId, changes) => {
@@ -185,7 +232,9 @@ const initialize = async () => {
 const selectCurrentTab = async () => {
   const version = ++tabQueryVersion
   const tabId = await getCurrentTabId()
-  if (version !== tabQueryVersion) return
+  if (version !== tabQueryVersion) {
+    return
+  }
   if (typeof tabId !== 'number') {
     state.tabId = null
 
@@ -212,7 +261,7 @@ const selectCurrentTab = async () => {
   state.metadata = null
   state.storage = normalizeStorageSnapshot(null)
   render()
-  port.postMessage({ type: 'init', tabId })
+  postPanelRequest({ type: 'init', tabId })
   requestSnapshot()
 }
 
@@ -297,7 +346,11 @@ const renderTreeActionButtons = () => {
     : 'Collapse'
 }
 
-const renderEmptyDetail = (title, message, emptyText) => {
+const renderEmptyDetail = (
+  title: string,
+  message: string,
+  emptyText: string,
+) => {
   elements.detailTitle.textContent = title
   elements.detailTitle.title = ''
   elements.detailMeta.textContent = message
@@ -313,7 +366,7 @@ const renderList = () => {
   elements.entryList.replaceChildren(...entries.map(renderStorageItem))
 }
 
-const renderStorageItem = (entry) => {
+const renderStorageItem = (entry: DisplayStorageEntry) => {
   const item = document.createElement('li')
   item.className = `entry-item${entry.id === state.selectedStorageId ? ' selected' : ''}`
   item.addEventListener('click', () => {
@@ -399,7 +452,7 @@ const renderDetail = () => {
     .join(' · ')
 
   if (entry.area === 'cookie') {
-    elements.detailMeta.textContent += ` · ${entry.domain}${entry.path} · ${entry.hostOnly ? 'Host-only' : 'Domain'} · ${entry.secure ? 'Secure' : 'Not Secure'} · ${entry.httpOnly ? 'HttpOnly' : 'Not HttpOnly'} · SameSite: ${entry.sameSite} · ${entry.session ? 'Session' : new Date(entry.expirationDate * 1000).toLocaleString()}${entry.partitionKey ? ` · Partition: ${entry.partitionKey.topLevelSite}` : ''}`
+    elements.detailMeta.textContent += ` · ${entry.domain}${entry.path} · ${entry.hostOnly ? 'Host-only' : 'Domain'} · ${entry.secure ? 'Secure' : 'Not Secure'} · ${entry.httpOnly ? 'HttpOnly' : 'Not HttpOnly'} · SameSite: ${entry.sameSite} · ${entry.session ? 'Session' : new Date((entry.expirationDate ?? 0) * 1000).toLocaleString()}${entry.partitionKey ? ` · Partition: ${entry.partitionKey.topLevelSite}` : ''}`
   }
   if (state.rawView) {
     renderRaw(entry.value)
@@ -420,13 +473,13 @@ const renderDetail = () => {
   renderTreeActionButtons()
 }
 
-const setTreeOpen = (open) => {
+const setTreeOpen = (open: boolean) => {
   for (const details of elements.treeView.querySelectorAll('details')) {
     details.open = open
   }
 }
 
-const renderFilteredJson = (value, key) => {
+const renderFilteredJson = (value: unknown, key: string) => {
   const tree = renderJsonTree(
     value,
     key,
@@ -441,17 +494,18 @@ const renderFilteredJson = (value, key) => {
 }
 
 const renderJsonTree = (
-  value,
-  key,
+  value: unknown,
+  key: string,
   filter = '',
   matchKey = true,
   budget = { remaining: 5000 },
   depth = 0,
-) => {
-  if (--budget.remaining < 0 || depth > 100)
+): HTMLElement | null => {
+  if (--budget.remaining < 0 || depth > 100) {
     return emptyState(
       'Tree display limit reached. Use Raw to view the complete value.',
     )
+  }
   const keyMatches = matchKey && normalizeSearchText(key).includes(filter)
 
   if (value === null || typeof value !== 'object') {
@@ -467,7 +521,9 @@ const renderJsonTree = (
 
   const children = []
   for (const [childKey, childValue] of Object.entries(value)) {
-    if (budget.remaining < 0) break
+    if (budget.remaining < 0) {
+      break
+    }
     const child = renderJsonTree(
       childValue,
       childKey,
@@ -508,14 +564,14 @@ const renderJsonTree = (
   return details
 }
 
-const renderKey = (key) => {
+const renderKey = (key: string) => {
   const span = document.createElement('span')
   span.className = 'key'
   span.textContent = key
   return span
 }
 
-const renderPrimitive = (value) => {
+const renderPrimitive = (value: unknown) => {
   const span = document.createElement('span')
   span.className = value === null ? 'null' : typeof value
   span.textContent =
@@ -523,7 +579,7 @@ const renderPrimitive = (value) => {
   return span
 }
 
-const emptyState = (text) => {
+const emptyState = (text: string) => {
   const node = document.createElement('div')
   node.className = 'empty-state'
   node.textContent = text
@@ -538,24 +594,26 @@ const requestSnapshot = () => {
   ) {
     snapshotPendingUntil = Date.now() + 5000
     try {
-      port.postMessage({
+      postPanelRequest({
         type: state.mode === 'metadata' ? 'getMetadata' : 'getStorage',
         requestId: ++snapshotRequestId,
       })
-    } catch (_) {
+    } catch {
       snapshotPendingUntil = 0
     }
   }
 }
 
-const renderRaw = (text) => {
+const renderRaw = (text: string) => {
   const pre = document.createElement('pre')
   pre.className = 'raw-value'
   pre.textContent = text
   elements.treeView.replaceChildren(pre)
 }
 
-const normalizeStorageSnapshot = (snapshot) => {
+const normalizeStorageSnapshot = (
+  snapshot: StorageSnapshot | null | undefined,
+) => {
   return {
     documentId: snapshot?.documentId || '',
     url: snapshot?.url || '',
@@ -564,10 +622,10 @@ const normalizeStorageSnapshot = (snapshot) => {
     cookieError: snapshot?.cookieError || '',
     cookies: (snapshot?.cookies || []).map((cookie) => ({
       ...cookie,
-      area: 'cookie',
-      key: CookieStore.identity(cookie),
-      id: `cookie:${CookieStore.identity(cookie)}`,
-      expectedCookie: CookieStore.fingerprint(cookie),
+      area: 'cookie' as const,
+      key: ExtensionCookies.identity(cookie),
+      id: `cookie:${ExtensionCookies.identity(cookie)}`,
+      expectedCookie: ExtensionCookies.fingerprint(cookie),
       searchText: buildSearchText([
         cookie.name,
         cookie.value,
@@ -581,7 +639,10 @@ const normalizeStorageSnapshot = (snapshot) => {
   }
 }
 
-const prepareStorageEntries = (entries, area) => {
+const prepareStorageEntries = (
+  entries: StorageValue[] | undefined,
+  area: 'local' | 'session',
+) => {
   if (!Array.isArray(entries)) {
     return []
   }
@@ -594,7 +655,7 @@ const prepareStorageEntries = (entries, area) => {
   }))
 }
 
-const buildSearchText = (values) => {
+const buildSearchText = (values: unknown[]) => {
   return normalizeSearchText(
     values
       .map((value) => String(value || '').slice(0, SEARCH_TEXT_LIMIT))
@@ -602,11 +663,11 @@ const buildSearchText = (values) => {
   )
 }
 
-const normalizeSearchText = (value) => {
+const normalizeSearchText = (value: unknown) => {
   return String(value || '').toLocaleLowerCase()
 }
 
-const parseMaybeJson = (value) => {
+const parseMaybeJson = (value: unknown) => {
   const trimmed = String(value || '').trim()
   if (!trimmed || !(trimmed.startsWith('{') || trimmed.startsWith('['))) {
     return { ok: false }
@@ -614,12 +675,12 @@ const parseMaybeJson = (value) => {
 
   try {
     return { ok: true, value: JSON.parse(trimmed) }
-  } catch (_) {
+  } catch {
     return { ok: false }
   }
 }
 
-const renderPrimitiveStorage = (value, key) => {
+const renderPrimitiveStorage = (value: unknown, key: string) => {
   const row = document.createElement('div')
   row.className = 'tree-row'
   row.append(
@@ -630,7 +691,7 @@ const renderPrimitiveStorage = (value, key) => {
   return row
 }
 
-const compactValue = (value) => {
+const compactValue = (value: unknown) => {
   const text = String(value || '')
     .replace(/\s+/g, ' ')
     .trim()
@@ -640,7 +701,9 @@ const compactValue = (value) => {
 const renderMetadata = () => {
   previewBatch.dispose()
   previewBatch = ImagePreviews.createBatch()
-  if (state.mode !== 'metadata') return
+  if (state.mode !== 'metadata') {
+    return
+  }
   const data = state.metadata
   if (!data || data.error) {
     elements.metadataView.replaceChildren(
@@ -658,9 +721,9 @@ const renderMetadata = () => {
     ['canonical', 'Canonical URL'],
     ['description', 'Description'],
     data.openGraph?.length
-      ? ['openGraph', 'Open Graph']
-      : ['twitter', 'Twitter Card'],
-  ]) {
+      ? (['openGraph', 'Open Graph'] as const)
+      : (['twitter', 'Twitter Card'] as const),
+  ] as const) {
     const heading = document.createElement('h2')
     heading.textContent = title
     nodes.push(heading)
@@ -711,7 +774,10 @@ const renderMetadata = () => {
   elements.metadataView.replaceChildren(...nodes)
 }
 
-const metadataImageUrl = (entry, baseUrl) => {
+const metadataImageUrl = (
+  entry: MetadataEntry,
+  baseUrl: string | undefined,
+) => {
   if (
     ![
       'og:image',
@@ -721,21 +787,22 @@ const metadataImageUrl = (entry, baseUrl) => {
       'twitter:image:src',
     ].includes(entry.key.toLowerCase()) ||
     !entry.value.trim()
-  )
+  ) {
     return null
+  }
   try {
     const url = new URL(entry.value, baseUrl)
     return url.protocol === 'https:' && !url.username && !url.password
       ? url.href
       : null
-  } catch (_) {
+  } catch {
     return null
   }
 }
 
-const groupMetadataTags = (entries) => {
-  const grouped = []
-  const tags = new Map()
+const groupMetadataTags = (entries: MetadataEntry[]) => {
+  const grouped: MetadataEntry[] = []
+  const tags = new Map<string, MetadataEntry & { values: string[] }>()
   for (const entry of entries) {
     const key = entry.key.toLowerCase()
     if (!key.endsWith(':tag')) {
@@ -760,7 +827,9 @@ connectPanel()
 
 elements.deleteStorageButton.addEventListener('click', () => {
   const entry = getSelectedStorageEntry()
-  if (!entry || !state.storage.documentId || storageEdit) return
+  if (!entry || !state.storage.documentId || storageEdit) {
+    return
+  }
   storageEdit = {
     deleting: true,
     tabId: state.tabId,
@@ -768,24 +837,26 @@ elements.deleteStorageButton.addEventListener('click', () => {
     area: entry.area,
     key: entry.key,
     expectedValue: entry.value,
-    expectedCookie: entry.expectedCookie,
+    expectedCookie: entry.area === 'cookie' ? entry.expectedCookie : undefined,
     requestId: ++saveSequence,
   }
   renderModeChrome()
   elements.detailMeta.textContent = 'Deleting…'
-  port.postMessage({ type: 'deleteStorage', ...storageEdit })
+  postPanelRequest({ type: 'deleteStorage', ...storageEdit })
 })
 
 elements.editStorageButton.addEventListener('click', () => {
   const entry = getSelectedStorageEntry()
-  if (!entry || !state.storage.documentId) return
+  if (!entry || !state.storage.documentId) {
+    return
+  }
   let parsed
   let json = false
   if (entry.area !== 'cookie') {
     try {
       parsed = JSON.parse(entry.value)
       json = true
-    } catch (_) {}
+    } catch {}
   }
   storageEdit = {
     json,
@@ -794,7 +865,7 @@ elements.editStorageButton.addEventListener('click', () => {
     area: entry.area,
     key: entry.key,
     expectedValue: entry.value,
-    expectedCookie: entry.expectedCookie,
+    expectedCookie: entry.area === 'cookie' ? entry.expectedCookie : undefined,
   }
   elements.storageEditorTitle.textContent =
     entry.area === 'cookie'
@@ -817,17 +888,24 @@ elements.cancelStorageEdit.addEventListener('click', () => {
 })
 
 elements.storageEditor.addEventListener('cancel', (event) => {
-  if (elements.saveStorageEdit.disabled) event.preventDefault()
-  else storageEdit = null
+  if (elements.saveStorageEdit.disabled) {
+    event.preventDefault()
+  } else {
+    storageEdit = null
+  }
 })
 
 elements.saveStorageEdit.addEventListener('click', () => {
-  if (!storageEdit) return
+  if (!storageEdit) {
+    return
+  }
   const value = elements.storageValueInput.value
   try {
-    if (storageEdit.json) JSON.parse(value)
+    if (storageEdit.json) {
+      JSON.parse(value)
+    }
   } catch (error) {
-    elements.storageEditStatus.textContent = `Invalid JSON: ${error.message}`
+    elements.storageEditStatus.textContent = `Invalid JSON: ${error && typeof error === 'object' && 'message' in error ? String(error.message) : String(error)}`
     return
   }
   storageEdit.requestId = ++saveSequence
@@ -835,7 +913,7 @@ elements.saveStorageEdit.addEventListener('click', () => {
   elements.cancelStorageEdit.disabled = true
   elements.storageValueInput.disabled = true
   elements.storageEditStatus.textContent = 'Saving…'
-  port.postMessage({ type: 'setStorage', ...storageEdit, value })
+  postPanelRequest({ type: 'setStorage', ...storageEdit, value })
 })
 
 elements.metadataModeButton.addEventListener('click', () =>
@@ -882,10 +960,14 @@ elements.rawButton.addEventListener('click', () => {
 })
 
 initialize().catch((error) => {
-  elements.detailMeta.textContent = error.message
+  elements.detailMeta.textContent =
+    error && typeof error === 'object' && 'message' in error
+      ? String(error.message)
+      : String(error)
 })
 
 window.setInterval(() => {
-  if (state.mode !== 'metadata' && document.visibilityState !== 'hidden')
+  if (state.mode !== 'metadata' && document.visibilityState !== 'hidden') {
     requestSnapshot()
+  }
 }, 1000)

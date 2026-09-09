@@ -5,7 +5,7 @@ const {
   normalizeEvent,
   reduce,
   formatBytes,
-} = require('../src/network-stats.js')
+} = require('../build/src/network-stats.js')
 
 const tracker = () => {
   let state

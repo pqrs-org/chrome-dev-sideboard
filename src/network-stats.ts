@@ -1,8 +1,8 @@
-;((root) => {
+const PageNetworkStats = (() => {
   'use strict'
 
-  const keyForTab = (tabId) => `network:${tabId}`
-  const withoutHash = (url) => {
+  const keyForTab = (tabId: number) => `network:${tabId}`
+  const withoutHash = (url: string) => {
     try {
       const parsed = new URL(url)
       parsed.hash = ''
@@ -14,7 +14,7 @@
     }
   }
 
-  const normalizeEvent = (kind, details) => {
+  const normalizeEvent = (kind: NetworkKind, details: NetworkDetails) => {
     const headers = details.responseHeaders || []
     const length = headers.find(
       (h) => h.name.toLowerCase() === 'content-length',
@@ -22,16 +22,16 @@
     const number = /^\d+$/.test(String(length ?? '')) ? Number(length) : null
     return {
       kind,
-      requestId: details.requestId,
+      requestId: details.requestId ?? '',
       type: details.type,
-      method: details.method,
+      method: details.method ?? '',
       timeStamp: details.timeStamp,
       // Keep document URLs for navigation and failed request URLs for details.
       url:
         details.type === 'main_frame' ||
         kind === 'commit' ||
         kind === 'error' ||
-        (kind === 'complete' && details.statusCode >= 400)
+        (kind === 'complete' && (details.statusCode ?? 0) >= 400)
           ? withoutHash(details.url)
           : undefined,
       documentId: details.documentId,
@@ -47,7 +47,10 @@
     }
   }
 
-  const createState = (event, scope = 'partial') => {
+  const createState = (
+    event: ReturnType<typeof normalizeEvent>,
+    scope = 'partial',
+  ): NetworkState => {
     return {
       startedAt: event.timeStamp,
       scope,
@@ -72,17 +75,23 @@
     }
   }
 
-  const reduce = (previous, event) => {
+  const reduce = (
+    previous: NetworkState | null | undefined,
+    event: ReturnType<typeof normalizeEvent>,
+  ) => {
     let state = previous
     if (event.kind === 'commit') {
-      if (!/^https?:/.test(event.url)) return null
+      if (!/^https?:/.test(event.url || '')) {
+        return null
+      }
       if (state?.awaitingCommit && state.pageUrl === event.url) {
         state.awaitingCommit = false
         state.documentId = event.documentId
         return state
       }
-      if (state?.documentId === event.documentId && event.documentId)
+      if (state?.documentId === event.documentId && event.documentId) {
         return state
+      }
       state = createState(event, 'partial')
       state.documentId = event.documentId
       return state
@@ -97,7 +106,9 @@
         state.awaitingCommit = true
       }
       state ||= createState(event)
-      if (event.type === 'main_frame') state.pageUrl = event.url
+      if (event.type === 'main_frame') {
+        state.pageUrl = event.url || ''
+      }
       // Redirects and auth retries retain the request ID and count as one chain.
       if (Object.hasOwn(state.pending, event.requestId)) {
         state.pending[event.requestId].bodySize = null
@@ -117,7 +128,9 @@
       }
       return state
     }
-    if (!state || !Object.hasOwn(state.pending, event.requestId)) return state
+    if (!state || !Object.hasOwn(state.pending, event.requestId)) {
+      return state
+    }
     const request = state.pending[event.requestId]
     if (event.kind === 'headers') {
       request.bodySize = event.bodySize
@@ -129,23 +142,30 @@
     } else if (event.kind === 'complete' || event.kind === 'error') {
       delete state.pending[event.requestId]
       const statusCode = event.statusCode ?? request.statusCode
-      if (event.kind === 'error' || statusCode >= 400) {
+      if (event.kind === 'error' || (statusCode ?? 0) >= 400) {
         state.failureDetails ||= []
         state.failureDetails.push({
           kind: event.kind === 'error' ? 'networkErrors' : 'httpErrors',
           url: event.url || 'URL unavailable',
           method: event.method || request.method || 'GET',
           timeStamp: event.timeStamp,
-          reason: event.kind === 'error' ? event.error : `HTTP ${statusCode}`,
+          reason:
+            event.kind === 'error'
+              ? event.error || 'Unknown error'
+              : `HTTP ${statusCode}`,
         })
-        if (state.failureDetails.length > 100) state.failureDetails.shift()
+        if (state.failureDetails.length > 100) {
+          state.failureDetails.shift()
+        }
       }
       if (event.kind === 'error') {
         state.networkErrors++
         return state
       }
       state.completed++
-      if ((event.statusCode ?? request.statusCode) >= 400) state.httpErrors++
+      if ((event.statusCode ?? request.statusCode ?? 0) >= 400) {
+        state.httpErrors++
+      }
       const duration = event.timeStamp - request.startedAt
       if (Number.isFinite(duration) && duration >= 0) {
         state.durationCount++
@@ -153,18 +173,21 @@
         state.durationMax = Math.max(state.durationMax, duration)
       }
       const code = event.statusCode ?? request.statusCode
-      if (event.fromCache || code === 304) state.cached++
-      else if (request.method === 'HEAD' || code === 204 || code === 205) {
+      if (event.fromCache || code === 304) {
+        state.cached++
+      } else if (request.method === 'HEAD' || code === 204 || code === 205) {
         state.knownSizes++
       } else if (request.bodySize !== null) {
         state.knownBytes += request.bodySize
         state.knownSizes++
-      } else state.unknownSizes++
+      } else {
+        state.unknownSizes++
+      }
     }
     return state
   }
 
-  const formatBytes = (value) => {
+  const formatBytes = (value: number) => {
     const units = ['B', 'KiB', 'MiB', 'GiB']
     let index = 0
     while (value >= 1024 && index < units.length - 1) {
@@ -174,7 +197,8 @@
     return `${index ? value.toFixed(1) : value} ${units[index]}`
   }
 
-  const api = { keyForTab, normalizeEvent, reduce, formatBytes }
-  root.PageNetworkStats = api
-  if (typeof module !== 'undefined' && module.exports) module.exports = api
-})(globalThis)
+  return { keyForTab, normalizeEvent, reduce, formatBytes }
+})()
+if (typeof module !== 'undefined') {
+  module.exports = PageNetworkStats
+}

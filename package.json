@@ -1,0 +1,26 @@
+{
+  "name": "dev-sideboard",
+  "private": true,
+  "scripts": {
+    "build": "python3 scripts/build.py",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . && ruff check scripts",
+    "test": "pnpm run build && node --test tests/*.test.js",
+    "format": "prettier --write . && ruff format scripts",
+    "format:check": "prettier --check . && ruff format --check scripts",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm test && pnpm run format:check"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/chrome": "^0.2.9",
+    "eslint": "^10.10.0",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.6",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.0"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "packageManager": "pnpm@11.24.0"
+}

@@ -11,10 +11,10 @@ Inspect page information, network activity, storage, and cookies in Chrome’s s
 
 ## Installation
 
-Requires Chrome 142 or later.
+Requires Chrome 142 or later. Run `pnpm install --frozen-lockfile` and `make build` before loading from source.
 
 1.  Open `chrome://extensions` and enable **Developer mode**.
-2.  Select **Load unpacked** and choose this directory.
+2.  Select **Load unpacked** and choose the `build/` directory.
 3.  Click the extension icon to open the side panel.
 4.  Reload already open pages after installing or updating the extension.
 
@@ -38,9 +38,11 @@ See the [privacy policy](PRIVACY.md) for data handling and retention details.
 
 ## Development and publishing
 
-There are no runtime dependencies.
+Development requires Node.js 22.13 or later, pnpm, Python 3, and Ruff. Run `pnpm install --frozen-lockfile` to install the development dependencies. There are no runtime dependencies.
 
-- `make test` runs the tests.
+- `make build` compiles TypeScript and copies extension assets into `build/`. Rebuild after source changes, then reload the extension in Chrome.
+- `make check` runs type checking, ESLint, Ruff, tests, and formatting checks.
+- `make test` builds the extension and runs the tests.
 - `make format` formats Python scripts with Ruff and other source files and documentation with Prettier.
 - `make package` runs checks and creates the upload ZIP in `dist/`.
 

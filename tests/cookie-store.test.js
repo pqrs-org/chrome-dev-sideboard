@@ -53,7 +53,7 @@ const setup = () => {
     },
   }
   vm.runInNewContext(
-    fs.readFileSync(require.resolve('../src/cookie-store.js'), 'utf8'),
+    fs.readFileSync(require.resolve('../build/src/cookie-store.js'), 'utf8'),
     context,
   )
   const api = context.module.exports

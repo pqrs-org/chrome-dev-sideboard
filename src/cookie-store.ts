@@ -1,6 +1,6 @@
 'use strict'
-const CookieStore = (() => {
-  const identity = (c) =>
+const ExtensionCookies = (() => {
+  const identity = (c: chrome.cookies.Cookie) =>
     JSON.stringify([
       c.name,
       c.domain,
@@ -9,7 +9,7 @@ const CookieStore = (() => {
       c.partitionKey?.topLevelSite || '',
       c.partitionKey?.hasCrossSiteAncestor ?? false,
     ])
-  const fingerprint = (c) =>
+  const fingerprint = (c: chrome.cookies.Cookie) =>
     JSON.stringify([
       identity(c),
       c.value,
@@ -20,40 +20,47 @@ const CookieStore = (() => {
       c.session,
       c.expirationDate,
     ])
-  const read = async (tabId) => {
+  const read = async (tabId: number) => {
     const frame = await chrome.webNavigation.getFrame({ tabId, frameId: 0 })
-    if (!frame?.documentId || !/^https?:/.test(frame.url))
+    if (!frame?.documentId || !/^https?:/.test(frame.url)) {
       throw new Error('Cookies are unavailable on this page.')
+    }
     const stores = await chrome.cookies.getAllCookieStores()
     const store = stores.find((s) => s.tabIds.includes(tabId))
-    if (!store) throw new Error('Cookie store unavailable.')
+    if (!store) {
+      throw new Error('Cookie store unavailable.')
+    }
     const query = { url: frame.url, storeId: store.id }
     let cookies = await chrome.cookies.getAll(query)
     const { partitionKey } = await chrome.cookies.getPartitionKey({
       tabId,
       frameId: 0,
     })
-    if (partitionKey)
+    if (partitionKey) {
       cookies.push(...(await chrome.cookies.getAll({ ...query, partitionKey })))
+    }
     cookies = [...new Map(cookies.map((c) => [identity(c), c])).values()]
     return { documentId: frame.documentId, url: frame.url, cookies }
   }
-  const write = async (tabId, edit, deleting = false) => {
+  const write = async (tabId: number, edit: StorageEdit, deleting = false) => {
     const snapshot = await read(tabId)
-    if (snapshot.documentId !== edit.documentId)
+    if (snapshot.documentId !== edit.documentId) {
       throw new Error('The page changed. Refresh cookies and edit again.')
+    }
     const cookie = snapshot.cookies.find((c) => identity(c) === edit.key)
     if (
       !cookie ||
       fingerprint(cookie) !== edit.expectedCookie ||
       cookie.value !== edit.expectedValue
-    )
+    ) {
       throw new Error(
         'This cookie changed or expired. Refresh cookies and edit again.',
       )
-    if (!deleting && typeof edit.value !== 'string')
+    }
+    if (!deleting && typeof edit.value !== 'string') {
       throw new Error('Invalid cookie value.')
-    const details = {
+    }
+    const details: chrome.cookies.SetDetails = {
       url: snapshot.url,
       name: cookie.name,
       value: deleting ? cookie.value : edit.value,
@@ -63,20 +70,32 @@ const CookieStore = (() => {
       httpOnly: cookie.httpOnly,
       sameSite: cookie.sameSite,
     }
-    if (!cookie.hostOnly) details.domain = cookie.domain
-    if (!cookie.session) details.expirationDate = cookie.expirationDate
-    if (cookie.partitionKey) details.partitionKey = cookie.partitionKey
+    if (!cookie.hostOnly) {
+      details.domain = cookie.domain
+    }
+    if (!cookie.session) {
+      details.expirationDate = cookie.expirationDate
+    }
+    if (cookie.partitionKey) {
+      details.partitionKey = cookie.partitionKey
+    }
     const frame = await chrome.webNavigation.getFrame({ tabId, frameId: 0 })
-    if (frame?.documentId !== edit.documentId)
+    if (frame?.documentId !== edit.documentId) {
       throw new Error('The page changed. Refresh cookies and edit again.')
+    }
     // Expire the exact domain/path/store/partition tuple. cookies.remove only
     // accepts URL and name and can select a different same-name cookie.
-    if (deleting) details.expirationDate = 1
+    if (deleting) {
+      details.expirationDate = 1
+    }
     const saved = await chrome.cookies.set(details)
-    if (!saved && !deleting)
+    if (!saved && !deleting) {
       throw new Error('Chrome could not save this cookie.')
+    }
     return saved
   }
   return { identity, fingerprint, read, write }
 })()
-if (typeof module !== 'undefined') module.exports = CookieStore
+if (typeof module !== 'undefined') {
+  module.exports = ExtensionCookies
+}

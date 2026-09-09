@@ -12,7 +12,7 @@ The extension automatically observes HTTP and HTTPS requests associated with tab
 
 Network measurements retain: per-tab counters, durations, sizes, pending request identifiers and start times, up to 100 recent failed request URLs with methods, timestamps, and error codes per tab, main document identifiers, and the current main document URL used to detect navigation. Usernames, passwords, and fragments are stripped from stored URLs; their paths and queries may still contain private information. Raw network headers are not retained. Page titles are displayed but not saved.
 
-The extension also injects scripts into HTTP/HTTPS pages and frames to wrap fetch and XMLHttpRequest and capture JSON-like responses. Request URLs, methods, status codes, timestamps, timings, and response payload text are retained in session memory. Each tab stores at most 80 records and 512,000 serialized characters, with payload text limited to 100,000 characters per record. These payloads may contain personal information, tokens, or other application secrets. The extension does not intentionally read request authorization headers or browser cookies.
+The extension also injects scripts into HTTP/HTTPS pages and frames to wrap fetch and XMLHttpRequest and capture JSON-like responses. Request URLs, methods, status codes, timestamps, timings, and response payload text are retained in session memory. Each tab stores at most 80 records and 512,000 serialized characters, with payload text limited to 100,000 characters per record. These payloads may contain personal information, tokens, or other application secrets. The extension does not intentionally read request authorization headers.
 
 Local Storage and Session Storage keys and values are read from the active page's top frame for the Storage view, with automatic refresh about once per second while that view is visible. They remain in panel memory and are not persisted by the extension. The Copy action writes the selected response or storage value to the clipboard only when clicked.
 
@@ -21,6 +21,10 @@ The extension does not change request parameters, block traffic, or send additio
 Storage auto-refresh pauses while editing JSON. It reads website storage locally and does not reload the page or send network requests.
 
 Storage JSON values can be edited using Edit JSON and saved explicitly. Save updates only the selected Local Storage or Session Storage key on the inspected document; invalid JSON and values changed since inspection are rejected. Edits are saved to the website’s storage, not to extension history. The page may need to be reloaded to use the new value.
+
+The Cookies view also reads cookies matching the active page URL, including HttpOnly cookies and their attributes. Cookie values can include authentication tokens and other personal data. Snapshots remain in panel memory, refresh while the view is visible, and are not saved to extension history. Edit Cookie updates the selected cookie in Chrome only when Save is clicked; Copy copies its value only when clicked.
+
+Delete removes only the selected Local Storage / Session Storage key or Cookie. Changes since inspection are rejected. Cookie deletion expires the exact domain, path, store, and partition, preserving other same-name cookies. Deletions apply to website/browser data and are not saved in extension history.
 
 ## Storage and retention
 
@@ -42,6 +46,8 @@ The extension does not sell user data or use it for advertising, creditworthines
 - `webNavigation`: identifies new main documents, including restored pages, so measurements do not carry over to a different document.
 - `storage`: keeps temporary measurements and captured JSON history in Chrome session memory across background worker restarts.
 - `clipboardWrite`: copies the selected response or storage value when the user clicks Copy.
+
+- `cookies`: reads applicable cookies and updates their values when the user saves an edit.
 
 ## Contact
 

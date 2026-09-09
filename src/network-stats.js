@@ -1,25 +1,25 @@
-(function (root) {
-  "use strict";
+;(function (root) {
+  'use strict'
 
-  const keyForTab = (tabId) => `network:${tabId}`;
+  const keyForTab = (tabId) => `network:${tabId}`
   function withoutHash(url) {
     try {
-      const parsed = new URL(url);
-      parsed.hash = "";
-      parsed.username = "";
-      parsed.password = "";
-      return parsed.href;
+      const parsed = new URL(url)
+      parsed.hash = ''
+      parsed.username = ''
+      parsed.password = ''
+      return parsed.href
     } catch {
-      return "";
+      return ''
     }
   }
 
   function normalizeEvent(kind, details) {
-    const headers = details.responseHeaders || [];
+    const headers = details.responseHeaders || []
     const length = headers.find(
-      (h) => h.name.toLowerCase() === "content-length",
-    )?.value;
-    const number = /^\d+$/.test(String(length ?? "")) ? Number(length) : null;
+      (h) => h.name.toLowerCase() === 'content-length',
+    )?.value
+    const number = /^\d+$/.test(String(length ?? '')) ? Number(length) : null
     return {
       kind,
       requestId: details.requestId,
@@ -29,30 +29,30 @@
       timeStamp: details.timeStamp,
       // Keep document URLs for navigation and failed request URLs for details.
       url:
-        details.type === "main_frame" ||
-        kind === "commit" ||
-        kind === "error" ||
-        (kind === "complete" && details.statusCode >= 400)
+        details.type === 'main_frame' ||
+        kind === 'commit' ||
+        kind === 'error' ||
+        (kind === 'complete' && details.statusCode >= 400)
           ? withoutHash(details.url)
           : undefined,
       documentId: details.documentId,
       statusCode: details.statusCode,
       fromCache: Boolean(details.fromCache),
       error:
-        kind === "error" ? String(details.error || "Unknown error") : undefined,
+        kind === 'error' ? String(details.error || 'Unknown error') : undefined,
       bodySize:
         Number.isSafeInteger(number) &&
-        !headers.some((h) => h.name.toLowerCase() === "transfer-encoding")
+        !headers.some((h) => h.name.toLowerCase() === 'transfer-encoding')
           ? number
           : null,
-    };
+    }
   }
 
-  function createState(event, scope = "partial") {
+  function createState(event, scope = 'partial') {
     return {
       startedAt: event.timeStamp,
       scope,
-      pageUrl: event.url || "",
+      pageUrl: event.url || '',
       pageRequestId: null,
       documentId: null,
       awaitingCommit: false,
@@ -70,112 +70,112 @@
       cached: 0,
       omitted: 0,
       pending: {},
-    };
+    }
   }
 
   function reduce(previous, event) {
-    let state = previous;
-    if (event.kind === "commit") {
-      if (!/^https?:/.test(event.url)) return null;
+    let state = previous
+    if (event.kind === 'commit') {
+      if (!/^https?:/.test(event.url)) return null
       if (state?.awaitingCommit && state.pageUrl === event.url) {
-        state.awaitingCommit = false;
-        state.documentId = event.documentId;
-        return state;
+        state.awaitingCommit = false
+        state.documentId = event.documentId
+        return state
       }
       if (state?.documentId === event.documentId && event.documentId)
-        return state;
-      state = createState(event, "partial");
-      state.documentId = event.documentId;
-      return state;
+        return state
+      state = createState(event, 'partial')
+      state.documentId = event.documentId
+      return state
     }
-    if (event.kind === "start") {
+    if (event.kind === 'start') {
       if (
-        event.type === "main_frame" &&
+        event.type === 'main_frame' &&
         state?.pageRequestId !== event.requestId
       ) {
-        state = createState(event, "navigation");
-        state.pageRequestId = event.requestId;
-        state.awaitingCommit = true;
+        state = createState(event, 'navigation')
+        state.pageRequestId = event.requestId
+        state.awaitingCommit = true
       }
-      state ||= createState(event);
-      if (event.type === "main_frame") state.pageUrl = event.url;
+      state ||= createState(event)
+      if (event.type === 'main_frame') state.pageUrl = event.url
       // Redirects and auth retries retain the request ID and count as one chain.
       if (Object.hasOwn(state.pending, event.requestId)) {
-        state.pending[event.requestId].bodySize = null;
-        state.pending[event.requestId].statusCode = undefined;
-        return state;
+        state.pending[event.requestId].bodySize = null
+        state.pending[event.requestId].statusCode = undefined
+        return state
       }
-      state.requests++;
-      const ids = Object.keys(state.pending);
+      state.requests++
+      const ids = Object.keys(state.pending)
       if (ids.length >= 1000) {
-        delete state.pending[ids[0]];
-        state.omitted++;
+        delete state.pending[ids[0]]
+        state.omitted++
       }
       state.pending[event.requestId] = {
         startedAt: event.timeStamp,
         method: event.method,
         bodySize: null,
-      };
-      return state;
+      }
+      return state
     }
-    if (!state || !Object.hasOwn(state.pending, event.requestId)) return state;
-    const request = state.pending[event.requestId];
-    if (event.kind === "headers") {
-      request.bodySize = event.bodySize;
-      request.statusCode = event.statusCode;
-    } else if (event.kind === "redirect") {
+    if (!state || !Object.hasOwn(state.pending, event.requestId)) return state
+    const request = state.pending[event.requestId]
+    if (event.kind === 'headers') {
+      request.bodySize = event.bodySize
+      request.statusCode = event.statusCode
+    } else if (event.kind === 'redirect') {
       // Only the final response size is counted. Intermediate hops are excluded.
-      request.bodySize = null;
-      request.statusCode = undefined;
-    } else if (event.kind === "complete" || event.kind === "error") {
-      delete state.pending[event.requestId];
-      const statusCode = event.statusCode ?? request.statusCode;
-      if (event.kind === "error" || statusCode >= 400) {
-        state.failureDetails ||= [];
+      request.bodySize = null
+      request.statusCode = undefined
+    } else if (event.kind === 'complete' || event.kind === 'error') {
+      delete state.pending[event.requestId]
+      const statusCode = event.statusCode ?? request.statusCode
+      if (event.kind === 'error' || statusCode >= 400) {
+        state.failureDetails ||= []
         state.failureDetails.push({
-          kind: event.kind === "error" ? "networkErrors" : "httpErrors",
-          url: event.url || "URL unavailable",
-          method: event.method || request.method || "GET",
+          kind: event.kind === 'error' ? 'networkErrors' : 'httpErrors',
+          url: event.url || 'URL unavailable',
+          method: event.method || request.method || 'GET',
           timeStamp: event.timeStamp,
-          reason: event.kind === "error" ? event.error : `HTTP ${statusCode}`,
-        });
-        if (state.failureDetails.length > 100) state.failureDetails.shift();
+          reason: event.kind === 'error' ? event.error : `HTTP ${statusCode}`,
+        })
+        if (state.failureDetails.length > 100) state.failureDetails.shift()
       }
-      if (event.kind === "error") {
-        state.networkErrors++;
-        return state;
+      if (event.kind === 'error') {
+        state.networkErrors++
+        return state
       }
-      state.completed++;
-      if ((event.statusCode ?? request.statusCode) >= 400) state.httpErrors++;
-      const duration = event.timeStamp - request.startedAt;
+      state.completed++
+      if ((event.statusCode ?? request.statusCode) >= 400) state.httpErrors++
+      const duration = event.timeStamp - request.startedAt
       if (Number.isFinite(duration) && duration >= 0) {
-        state.durationCount++;
-        state.durationTotal += duration;
-        state.durationMax = Math.max(state.durationMax, duration);
+        state.durationCount++
+        state.durationTotal += duration
+        state.durationMax = Math.max(state.durationMax, duration)
       }
-      const code = event.statusCode ?? request.statusCode;
-      if (event.fromCache || code === 304) state.cached++;
-      else if (request.method === "HEAD" || code === 204 || code === 205) {
-        state.knownSizes++;
+      const code = event.statusCode ?? request.statusCode
+      if (event.fromCache || code === 304) state.cached++
+      else if (request.method === 'HEAD' || code === 204 || code === 205) {
+        state.knownSizes++
       } else if (request.bodySize !== null) {
-        state.knownBytes += request.bodySize;
-        state.knownSizes++;
-      } else state.unknownSizes++;
+        state.knownBytes += request.bodySize
+        state.knownSizes++
+      } else state.unknownSizes++
     }
-    return state;
+    return state
   }
 
   function formatBytes(value) {
-    const units = ["B", "KiB", "MiB", "GiB"];
-    let index = 0;
+    const units = ['B', 'KiB', 'MiB', 'GiB']
+    let index = 0
     while (value >= 1024 && index < units.length - 1) {
-      value /= 1024;
-      index++;
+      value /= 1024
+      index++
     }
-    return `${index ? value.toFixed(1) : value} ${units[index]}`;
+    return `${index ? value.toFixed(1) : value} ${units[index]}`
   }
 
-  const api = { keyForTab, normalizeEvent, reduce, formatBytes };
-  root.PageNetworkStats = api;
-  if (typeof module !== "undefined" && module.exports) module.exports = api;
-})(globalThis);
+  const api = { keyForTab, normalizeEvent, reduce, formatBytes }
+  root.PageNetworkStats = api
+  if (typeof module !== 'undefined' && module.exports) module.exports = api
+})(globalThis)

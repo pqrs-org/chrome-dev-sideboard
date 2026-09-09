@@ -1,107 +1,107 @@
-(function () {
+;(function () {
   if (window.__jsonFetchVisualizerInstalled) {
-    return;
+    return
   }
-  window.__jsonFetchVisualizerInstalled = true;
+  window.__jsonFetchVisualizerInstalled = true
 
-  const MAX_TEXT_LENGTH = 1024 * 1024;
-  const originalFetch = window.fetch;
-  const originalXHROpen = XMLHttpRequest.prototype.open;
-  const originalXHRSend = XMLHttpRequest.prototype.send;
+  const MAX_TEXT_LENGTH = 1024 * 1024
+  const originalFetch = window.fetch
+  const originalXHROpen = XMLHttpRequest.prototype.open
+  const originalXHRSend = XMLHttpRequest.prototype.send
 
-  let sequence = 0;
+  let sequence = 0
   // Identifies this document/frame generation so late responses from a previous
   // reload can be ignored after the top frame sends a new startup reset.
-  const pageSessionId = createPageSessionId();
+  const pageSessionId = createPageSessionId()
 
   window.postMessage(
     {
-      type: "json-fetch-visualizer:reset",
+      type: 'json-fetch-visualizer:reset',
       payload: {
         pageSessionId,
         pageUrl: location.href,
         timestamp: Date.now(),
       },
     },
-    "*",
-  );
+    '*',
+  )
 
   function now() {
-    return performance && performance.now ? performance.now() : Date.now();
+    return performance && performance.now ? performance.now() : Date.now()
   }
 
   function createPageSessionId() {
     if (
-      typeof crypto !== "undefined" &&
-      typeof crypto.randomUUID === "function"
+      typeof crypto !== 'undefined' &&
+      typeof crypto.randomUUID === 'function'
     ) {
-      return crypto.randomUUID();
+      return crypto.randomUUID()
     }
 
-    return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return `${Date.now()}-${Math.random().toString(36).slice(2)}`
   }
 
   function getAbsoluteUrl(input) {
     try {
-      if (typeof input === "string") {
-        return new URL(input, location.href).href;
+      if (typeof input === 'string') {
+        return new URL(input, location.href).href
       }
       if (input instanceof URL) {
-        return input.href;
+        return input.href
       }
-      if (input && typeof input.url === "string") {
-        return new URL(input.url, location.href).href;
+      if (input && typeof input.url === 'string') {
+        return new URL(input.url, location.href).href
       }
     } catch (_) {
-      return String(input);
+      return String(input)
     }
-    return String(input);
+    return String(input)
   }
 
   function getFetchMethod(input, init) {
     if (init && init.method) {
-      return String(init.method).toUpperCase();
+      return String(init.method).toUpperCase()
     }
-    if (input && typeof input.method === "string") {
-      return input.method.toUpperCase();
+    if (input && typeof input.method === 'string') {
+      return input.method.toUpperCase()
     }
-    return "GET";
+    return 'GET'
   }
 
   function isProbablyJson(contentType, text) {
     if (contentType && /\bjson\b/i.test(contentType)) {
-      return true;
+      return true
     }
 
-    const trimmed = text.trim();
-    return trimmed.startsWith("{") || trimmed.startsWith("[");
+    const trimmed = text.trim()
+    return trimmed.startsWith('{') || trimmed.startsWith('[')
   }
 
   function parseJsonPayload(text) {
     if (!text || text.length > MAX_TEXT_LENGTH) {
       return {
         json: null,
-        raw: (text || "").slice(0, MAX_TEXT_LENGTH),
+        raw: (text || '').slice(0, MAX_TEXT_LENGTH),
         truncated: text.length > MAX_TEXT_LENGTH,
-      };
+      }
     }
 
     try {
-      return { json: JSON.parse(text), raw: text, truncated: false };
+      return { json: JSON.parse(text), raw: text, truncated: false }
     } catch (error) {
       return {
         json: null,
         raw: text,
         truncated: false,
         parseError: error.message,
-      };
+      }
     }
   }
 
   function emit(record) {
     window.postMessage(
       {
-        type: "json-fetch-visualizer:record",
+        type: 'json-fetch-visualizer:record',
         payload: {
           id: `${Date.now()}-${++sequence}`,
           pageSessionId,
@@ -110,68 +110,68 @@
           ...record,
         },
       },
-      "*",
-    );
+      '*',
+    )
   }
 
   async function readFetchResponse(response) {
-    const contentType = response.headers.get("content-type") || "";
+    const contentType = response.headers.get('content-type') || ''
     // Read a clone so the original Response can still be returned to the page.
-    const clone = response.clone();
-    if (!clone.body) return null;
-    const reader = clone.body.getReader();
-    const decoder = new TextDecoder();
-    let text = "";
-    let size = 0;
+    const clone = response.clone()
+    if (!clone.body) return null
+    const reader = clone.body.getReader()
+    const decoder = new TextDecoder()
+    let text = ''
+    let size = 0
     try {
       while (true) {
-        const chunk = await reader.read();
-        if (chunk.done) break;
-        size += chunk.value.byteLength;
+        const chunk = await reader.read()
+        if (chunk.done) break
+        size += chunk.value.byteLength
         if (size > MAX_TEXT_LENGTH) {
-          reader.cancel().catch(() => {});
+          reader.cancel().catch(() => {})
           return {
             contentType,
             json: null,
             raw: text,
             truncated: true,
-            parseError: "Response exceeds 1 MiB capture limit.",
-          };
+            parseError: 'Response exceeds 1 MiB capture limit.',
+          }
         }
-        text += decoder.decode(chunk.value, { stream: true });
+        text += decoder.decode(chunk.value, { stream: true })
       }
-      text += decoder.decode();
+      text += decoder.decode()
     } finally {
-      reader.releaseLock();
+      reader.releaseLock()
     }
 
     if (!isProbablyJson(contentType, text)) {
-      return null;
+      return null
     }
 
     return {
       contentType,
       ...parseJsonPayload(text),
-    };
+    }
   }
 
-  if (typeof originalFetch === "function") {
+  if (typeof originalFetch === 'function') {
     window.fetch = function visualizedFetch(input, init) {
-      const startedAt = now();
+      const startedAt = now()
       // Return the original promise: the observer must not create a separate
       // rejecting promise for the page or replace its fetch result/error.
-      const request = originalFetch.apply(this, arguments);
+      const request = originalFetch.apply(this, arguments)
       try {
-        const url = getAbsoluteUrl(input);
-        const method = getFetchMethod(input, init);
+        const url = getAbsoluteUrl(input)
+        const method = getFetchMethod(input, init)
         request
           .then(
             async (response) => {
-              const durationMs = Math.round(now() - startedAt);
-              const payload = await readFetchResponse(response);
-              if (!payload) return;
+              const durationMs = Math.round(now() - startedAt)
+              const payload = await readFetchResponse(response)
+              if (!payload) return
               emit({
-                transport: "fetch",
+                transport: 'fetch',
                 method,
                 url,
                 status: response.status,
@@ -179,74 +179,74 @@
                 ok: response.ok,
                 durationMs,
                 ...payload,
-              });
+              })
             },
             (error) => {
               emit({
-                transport: "fetch",
+                transport: 'fetch',
                 method,
                 url,
                 status: 0,
-                statusText: "Request failed",
+                statusText: 'Request failed',
                 ok: false,
                 durationMs: Math.round(now() - startedAt),
                 json: null,
-                raw: "",
+                raw: '',
                 parseError: String(error?.message || error),
-              });
+              })
             },
           )
           .catch(() => {
             // Clone reads and reporting can fail independently of the page's
             // request (for example, when a response stream is aborted).
-          });
+          })
       } catch (_) {
         // Instrumentation errors must not change the original fetch outcome.
       }
-      return request;
-    };
+      return request
+    }
   }
 
   XMLHttpRequest.prototype.open = function visualizedOpen(method, url) {
     this.__jsonFetchVisualizer = {
-      method: String(method || "GET").toUpperCase(),
+      method: String(method || 'GET').toUpperCase(),
       url: getAbsoluteUrl(url),
       startedAt: 0,
-    };
-    return originalXHROpen.apply(this, arguments);
-  };
+    }
+    return originalXHROpen.apply(this, arguments)
+  }
 
   XMLHttpRequest.prototype.send = function visualizedSend() {
-    const metadata = this.__jsonFetchVisualizer;
+    const metadata = this.__jsonFetchVisualizer
     if (metadata) {
-      metadata.startedAt = now();
+      metadata.startedAt = now()
       this.addEventListener(
-        "loadend",
+        'loadend',
         () => {
-          const contentType = this.getResponseHeader("content-type") || "";
-          const responseType = this.responseType || "text";
+          const contentType = this.getResponseHeader('content-type') || ''
+          const responseType = this.responseType || 'text'
 
           if (
-            responseType !== "" &&
-            responseType !== "text" &&
-            responseType !== "json"
+            responseType !== '' &&
+            responseType !== 'text' &&
+            responseType !== 'json'
           ) {
-            return;
+            return
           }
 
-          let raw = "";
-          if (responseType === "json") {
-            raw = JSON.stringify(this.response);
+          let raw = ''
+          if (responseType === 'json') {
+            raw = JSON.stringify(this.response)
           } else {
-            raw = this.responseText || "";
+            raw = this.responseText || ''
           }
 
           if (!isProbablyJson(contentType, raw)) {
-            return;
+            return
           }
 
           emit({
-            transport: "xhr",
+            transport: 'xhr',
             method: metadata.method,
             url: metadata.url,
             status: this.status,
@@ -255,12 +255,12 @@
             durationMs: Math.round(now() - metadata.startedAt),
             contentType,
             ...parseJsonPayload(raw),
-          });
+          })
         },
         { once: true },
-      );
+      )
     }
 
-    return originalXHRSend.apply(this, arguments);
-  };
-})();
+    return originalXHRSend.apply(this, arguments)
+  }
+})()

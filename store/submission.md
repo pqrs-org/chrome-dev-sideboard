@@ -32,6 +32,10 @@ Uses only storage.session to retain per-tab measurements and temporary pending-r
 
 Copies the selected JSON response or website storage value only when the user clicks Copy.
 
+### cookies
+
+Reads cookies matching the inspected top-level page URL, including HttpOnly and supported partitioned cookies, and updates a selected value on explicit Save or deletes the selected cookie on Delete. Snapshots are kept only in panel memory. Cookie values may contain authentication information and should be included in applicable data disclosures.
+
 ## Remote code
 
 Select “No, I am not using remote code.” All executable JavaScript and styles are packaged with the extension.

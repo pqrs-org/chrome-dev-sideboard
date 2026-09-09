@@ -1,158 +1,186 @@
-const PANEL_PORT_NAME = "json-fetch-visualizer:panel";
-const SEARCH_TEXT_LIMIT = 12000;
-const FILTER_DEBOUNCE_MS = 120;
-const LIST_URL_MAX_LENGTH = 140;
-const DETAIL_URL_MAX_LENGTH = 240;
-const WRITE_METHODS = ["POST", "PUT", "PATCH"];
+const PANEL_PORT_NAME = 'json-fetch-visualizer:panel'
+const SEARCH_TEXT_LIMIT = 12000
+const FILTER_DEBOUNCE_MS = 120
+const LIST_URL_MAX_LENGTH = 140
+const DETAIL_URL_MAX_LENGTH = 240
+const WRITE_METHODS = ['POST', 'PUT', 'PATCH']
 
-let port;
+let port
 function connectPanel() {
-  port = chrome.runtime.connect({ name: PANEL_PORT_NAME });
-  port.onMessage.addListener(handlePanelMessage);
+  port = chrome.runtime.connect({ name: PANEL_PORT_NAME })
+  port.onMessage.addListener(handlePanelMessage)
   port.onDisconnect.addListener(() =>
     window.setTimeout(() => {
-      connectPanel();
-      if (typeof state.tabId === "number")
-        port.postMessage({ type: "init", tabId: state.tabId });
+      connectPanel()
+      if (typeof state.tabId === 'number')
+        port.postMessage({ type: 'init', tabId: state.tabId })
     }, 250),
-  );
+  )
 }
-let filterTimer = 0;
-let payloadFilterTimer = 0;
-let storageRequestId = 0;
-let storagePendingUntil = 0;
+let filterTimer = 0
+let payloadFilterTimer = 0
+let storageRequestId = 0
+let storagePendingUntil = 0
 
 const state = {
   tabId: null,
-  mode: "fetch",
+  mode: 'fetch',
   records: [],
   selectedId: null,
-  filter: "",
-  payloadFilter: "",
-  methodFilter: "get",
+  filter: '',
+  payloadFilter: '',
+  methodFilter: 'get',
   errorsOnly: false,
   storage: {
-    url: "",
-    origin: "",
+    url: '',
+    origin: '',
     timestamp: null,
     local: [],
     session: [],
-    error: "",
+    error: '',
   },
   selectedStorageId: null,
-};
+}
 
-let storageEdit = null;
-let saveSequence = 0;
+let storageEdit = null
+let saveSequence = 0
 const elements = {
-  editStorageButton: document.getElementById("editStorageButton"),
-  storageEditor: document.getElementById("storageEditor"),
-  storageEditorTitle: document.getElementById("storageEditorTitle"),
-  storageJsonInput: document.getElementById("storageJsonInput"),
-  storageEditStatus: document.getElementById("storageEditStatus"),
-  cancelStorageEdit: document.getElementById("cancelStorageEdit"),
-  saveStorageEdit: document.getElementById("saveStorageEdit"),
-  fetchModeButton: document.getElementById("fetchModeButton"),
-  storageModeButton: document.getElementById("storageModeButton"),
-  filterInput: document.getElementById("filterInput"),
-  methodFilterGroup: document.getElementById("methodFilterGroup"),
-  errorsOnlyLabel: document.getElementById("errorsOnlyLabel"),
-  errorsOnlyInput: document.getElementById("errorsOnlyInput"),
-  refreshStorageButton: document.getElementById("refreshStorageButton"),
-  countLabel: document.getElementById("countLabel"),
-  requestList: document.getElementById("requestList"),
-  detailTitle: document.getElementById("detailTitle"),
-  detailMeta: document.getElementById("detailMeta"),
-  payloadFilterInput: document.getElementById("payloadFilterInput"),
-  expandTreeButton: document.getElementById("expandTreeButton"),
-  collapseTreeButton: document.getElementById("collapseTreeButton"),
-  copyButton: document.getElementById("copyButton"),
-  treeView: document.getElementById("treeView"),
-};
+  deleteStorageButton: document.getElementById('deleteStorageButton'),
+  editStorageButton: document.getElementById('editStorageButton'),
+  storageEditor: document.getElementById('storageEditor'),
+  storageEditorTitle: document.getElementById('storageEditorTitle'),
+  storageJsonInput: document.getElementById('storageJsonInput'),
+  storageEditStatus: document.getElementById('storageEditStatus'),
+  cancelStorageEdit: document.getElementById('cancelStorageEdit'),
+  saveStorageEdit: document.getElementById('saveStorageEdit'),
+  fetchModeButton: document.getElementById('fetchModeButton'),
+  storageModeButton: document.getElementById('storageModeButton'),
+  cookiesModeButton: document.getElementById('cookiesModeButton'),
+  filterInput: document.getElementById('filterInput'),
+  methodFilterGroup: document.getElementById('methodFilterGroup'),
+  errorsOnlyLabel: document.getElementById('errorsOnlyLabel'),
+  errorsOnlyInput: document.getElementById('errorsOnlyInput'),
+  refreshStorageButton: document.getElementById('refreshStorageButton'),
+  countLabel: document.getElementById('countLabel'),
+  requestList: document.getElementById('requestList'),
+  detailTitle: document.getElementById('detailTitle'),
+  detailMeta: document.getElementById('detailMeta'),
+  payloadFilterInput: document.getElementById('payloadFilterInput'),
+  expandTreeButton: document.getElementById('expandTreeButton'),
+  collapseTreeButton: document.getElementById('collapseTreeButton'),
+  copyButton: document.getElementById('copyButton'),
+  treeView: document.getElementById('treeView'),
+}
 
 function handlePanelMessage(message) {
-  if (message.type === "storageSaved") {
+  if (message.type === 'storageSaved') {
     if (
       !storageEdit ||
       message.tabId !== storageEdit.tabId ||
       message.requestId !== storageEdit.requestId
     )
-      return;
-    elements.saveStorageEdit.disabled = false;
-    elements.cancelStorageEdit.disabled = false;
-    elements.storageJsonInput.disabled = false;
+      return
+    elements.saveStorageEdit.disabled = false
+    elements.cancelStorageEdit.disabled = false
+    elements.storageJsonInput.disabled = false
+    if (!message.ok && storageEdit.deleting) {
+      storageEdit = null
+      render()
+      elements.detailMeta.textContent = message.error || 'Unable to delete.'
+      return
+    }
     if (!message.ok) {
       elements.storageEditStatus.textContent =
-        message.error || "Unable to save.";
-      return;
+        message.error || 'Unable to save.'
+      return
     }
-    state.storage = normalizeStorageSnapshot(message.snapshot);
-    storageEdit = null;
-    elements.storageEditor.close();
-    render();
-    return;
+    state.storage = normalizeStorageSnapshot(message.snapshot)
+    storageEdit = null
+    elements.storageEditor.close()
+    if (!getSelectedStorageEntry())
+      state.selectedStorageId = getStorageEntries().at(0)?.id || null
+    render()
+    return
   }
-  if (message.type === "snapshot") {
-    if (typeof message.tabId === "number" && message.tabId !== state.tabId) {
-      return;
+  if (message.type === 'snapshot') {
+    if (typeof message.tabId === 'number' && message.tabId !== state.tabId) {
+      return
     }
 
-    state.records = message.records.map(prepareRecord);
+    state.records = message.records.map(prepareRecord)
     if (!state.records.some((record) => record.id === state.selectedId)) {
-      state.selectedId = state.records.at(-1)?.id || null;
+      state.selectedId = state.records.at(-1)?.id || null
     }
-    render();
+    render()
   }
 
-  if (message.type === "record") {
+  if (message.type === 'record') {
     if (message.record.tabId !== state.tabId) {
-      return;
+      return
     }
 
-    state.records = [...state.records, prepareRecord(message.record)].slice(
-      -80,
-    );
+    state.records = [...state.records, prepareRecord(message.record)].slice(-80)
     if (!state.selectedId) {
-      state.selectedId = message.record.id;
+      state.selectedId = message.record.id
     }
-    render();
+    render()
   }
 
-  if (message.type === "storageSnapshot") {
+  if (message.type === 'storageSnapshot') {
     if (message.tabId !== state.tabId) {
-      return;
+      return
     }
 
     if (
       message.requestId !== undefined &&
       message.requestId !== storageRequestId
     )
-      return;
-    storagePendingUntil = 0;
-    if (storageEdit) return;
-    const nextStorage = normalizeStorageSnapshot(message.snapshot);
-    const { timestamp: oldTime, ...oldValues } = state.storage;
-    const { timestamp: newTime, ...newValues } = nextStorage;
-    if (JSON.stringify(oldValues) === JSON.stringify(newValues)) return;
-    state.storage = nextStorage;
+      return
+    storagePendingUntil = 0
+    if (storageEdit) return
+    const nextStorage = normalizeStorageSnapshot(message.snapshot)
+    const { timestamp: oldTime, ...oldValues } = state.storage
+    const { timestamp: newTime, ...newValues } = nextStorage
+    if (JSON.stringify(oldValues) === JSON.stringify(newValues)) return
+    state.storage = nextStorage
     if (
       !getStorageEntries().some((entry) => entry.id === state.selectedStorageId)
     ) {
-      state.selectedStorageId = getStorageEntries().at(0)?.id || null;
+      state.selectedStorageId = getStorageEntries().at(0)?.id || null
     }
-    render();
+    render()
   }
 }
-connectPanel();
+connectPanel()
 
-elements.editStorageButton.addEventListener("click", () => {
-  const entry = getSelectedStorageEntry();
-  if (!entry || !state.storage.documentId) return;
-  let parsed;
-  try {
-    parsed = JSON.parse(entry.value);
-  } catch (_) {
-    return;
+elements.deleteStorageButton.addEventListener('click', () => {
+  const entry = getSelectedStorageEntry()
+  if (!entry || !state.storage.documentId || storageEdit) return
+  storageEdit = {
+    deleting: true,
+    tabId: state.tabId,
+    documentId: state.storage.documentId,
+    area: entry.area,
+    key: entry.key,
+    expectedValue: entry.value,
+    expectedCookie: entry.expectedCookie,
+    requestId: ++saveSequence,
+  }
+  renderModeChrome()
+  elements.detailMeta.textContent = 'Deleting…'
+  port.postMessage({ type: 'deleteStorage', ...storageEdit })
+})
+
+elements.editStorageButton.addEventListener('click', () => {
+  const entry = getSelectedStorageEntry()
+  if (!entry || !state.storage.documentId) return
+  let parsed
+  if (entry.area !== 'cookie') {
+    try {
+      parsed = JSON.parse(entry.value)
+    } catch (_) {
+      return
+    }
   }
   storageEdit = {
     tabId: state.tabId,
@@ -160,251 +188,265 @@ elements.editStorageButton.addEventListener("click", () => {
     area: entry.area,
     key: entry.key,
     expectedValue: entry.value,
-  };
-  elements.storageEditorTitle.textContent = `Edit ${entry.area === "local" ? "Local" : "Session"} Storage: ${entry.key}`;
-  elements.storageJsonInput.value = JSON.stringify(parsed, null, 2);
-  elements.storageEditStatus.textContent = "";
-  elements.saveStorageEdit.disabled = false;
-  elements.cancelStorageEdit.disabled = false;
-  elements.storageJsonInput.disabled = false;
-  elements.storageEditor.showModal();
-  elements.storageJsonInput.focus();
-});
-elements.cancelStorageEdit.addEventListener("click", () => {
-  storageEdit = null;
-  elements.storageEditor.close();
-});
-elements.storageEditor.addEventListener("cancel", (event) => {
-  if (elements.saveStorageEdit.disabled) event.preventDefault();
-  else storageEdit = null;
-});
-elements.saveStorageEdit.addEventListener("click", () => {
-  if (!storageEdit) return;
-  const value = elements.storageJsonInput.value;
-  try {
-    JSON.parse(value);
-  } catch (error) {
-    elements.storageEditStatus.textContent = `Invalid JSON: ${error.message}`;
-    return;
+    expectedCookie: entry.expectedCookie,
   }
-  storageEdit.requestId = ++saveSequence;
-  elements.saveStorageEdit.disabled = true;
-  elements.cancelStorageEdit.disabled = true;
-  elements.storageJsonInput.disabled = true;
-  elements.storageEditStatus.textContent = "Saving…";
-  port.postMessage({ type: "setStorage", ...storageEdit, value });
-});
+  elements.storageEditorTitle.textContent =
+    entry.area === 'cookie'
+      ? `Edit Cookie: ${entry.name}`
+      : `Edit ${entry.area === 'local' ? 'Local' : 'Session'} Storage: ${entry.key}`
+  elements.storageJsonInput.value =
+    entry.area === 'cookie' ? entry.value : JSON.stringify(parsed, null, 2)
+  elements.storageEditStatus.textContent = ''
+  elements.saveStorageEdit.disabled = false
+  elements.cancelStorageEdit.disabled = false
+  elements.storageJsonInput.disabled = false
+  elements.storageEditor.showModal()
+  elements.storageJsonInput.focus()
+})
+elements.cancelStorageEdit.addEventListener('click', () => {
+  storageEdit = null
+  elements.storageEditor.close()
+})
+elements.storageEditor.addEventListener('cancel', (event) => {
+  if (elements.saveStorageEdit.disabled) event.preventDefault()
+  else storageEdit = null
+})
+elements.saveStorageEdit.addEventListener('click', () => {
+  if (!storageEdit) return
+  const value = elements.storageJsonInput.value
+  try {
+    if (storageEdit.area !== 'cookie') JSON.parse(value)
+  } catch (error) {
+    elements.storageEditStatus.textContent = `Invalid JSON: ${error.message}`
+    return
+  }
+  storageEdit.requestId = ++saveSequence
+  elements.saveStorageEdit.disabled = true
+  elements.cancelStorageEdit.disabled = true
+  elements.storageJsonInput.disabled = true
+  elements.storageEditStatus.textContent = 'Saving…'
+  port.postMessage({ type: 'setStorage', ...storageEdit, value })
+})
 
-elements.fetchModeButton.addEventListener("click", () => {
-  state.mode = "fetch";
-  render();
-});
+elements.fetchModeButton.addEventListener('click', () => {
+  state.mode = 'fetch'
+  render()
+})
 
-elements.storageModeButton.addEventListener("click", () => {
-  state.mode = "storage";
-  requestStorageSnapshot();
-  render();
-});
+function selectStorageMode(mode) {
+  state.mode = mode
+  state.selectedStorageId = getStorageEntries().at(0)?.id || null
+  requestStorageSnapshot()
+  render()
+}
+elements.storageModeButton.addEventListener('click', () =>
+  selectStorageMode('storage'),
+)
+elements.cookiesModeButton.addEventListener('click', () =>
+  selectStorageMode('cookies'),
+)
 
-elements.filterInput.addEventListener("input", () => {
-  window.clearTimeout(filterTimer);
+elements.filterInput.addEventListener('input', () => {
+  window.clearTimeout(filterTimer)
   filterTimer = window.setTimeout(() => {
-    state.filter = normalizeSearchText(elements.filterInput.value.trim());
-    render();
-  }, FILTER_DEBOUNCE_MS);
-});
+    state.filter = normalizeSearchText(elements.filterInput.value.trim())
+    render()
+  }, FILTER_DEBOUNCE_MS)
+})
 
-elements.payloadFilterInput.addEventListener("input", () => {
-  window.clearTimeout(payloadFilterTimer);
+elements.payloadFilterInput.addEventListener('input', () => {
+  window.clearTimeout(payloadFilterTimer)
   payloadFilterTimer = window.setTimeout(() => {
     state.payloadFilter = normalizeSearchText(
       elements.payloadFilterInput.value.trim(),
-    );
-    renderDetail();
-  }, FILTER_DEBOUNCE_MS);
-});
+    )
+    renderDetail()
+  }, FILTER_DEBOUNCE_MS)
+})
 
-elements.errorsOnlyInput.addEventListener("change", () => {
-  state.errorsOnly = elements.errorsOnlyInput.checked;
-  renderList();
-});
+elements.errorsOnlyInput.addEventListener('change', () => {
+  state.errorsOnly = elements.errorsOnlyInput.checked
+  renderList()
+})
 
-elements.methodFilterGroup.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-method-filter]");
+elements.methodFilterGroup.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-method-filter]')
   if (!button) {
-    return;
+    return
   }
 
-  state.methodFilter = button.dataset.methodFilter;
-  renderList();
-  renderMethodFilterButtons();
-});
+  state.methodFilter = button.dataset.methodFilter
+  renderList()
+  renderMethodFilterButtons()
+})
 
-elements.refreshStorageButton.addEventListener("click", () => {
-  requestStorageSnapshot();
-});
+elements.refreshStorageButton.addEventListener('click', () => {
+  requestStorageSnapshot()
+})
 
-elements.expandTreeButton.addEventListener("click", () => {
-  setTreeOpen(true);
-});
+elements.expandTreeButton.addEventListener('click', () => {
+  setTreeOpen(true)
+})
 
-elements.collapseTreeButton.addEventListener("click", () => {
-  setTreeOpen(false);
-});
+elements.collapseTreeButton.addEventListener('click', () => {
+  setTreeOpen(false)
+})
 
-elements.copyButton.addEventListener("click", async () => {
-  const text = getCopyText();
+elements.copyButton.addEventListener('click', async () => {
+  const text = getCopyText()
   if (!text) {
-    return;
+    return
   }
 
   try {
-    await navigator.clipboard.writeText(text);
-    flashCopyButton();
+    await navigator.clipboard.writeText(text)
+    flashCopyButton()
   } catch (error) {
-    elements.detailMeta.textContent = error.message;
+    elements.detailMeta.textContent = error.message
   }
-});
+})
 
-let inspectorWindowId;
-let tabQueryVersion = 0;
+let inspectorWindowId
+let tabQueryVersion = 0
 initialize().catch((error) => {
-  elements.detailMeta.textContent = error.message;
-});
+  elements.detailMeta.textContent = error.message
+})
 async function initialize() {
-  inspectorWindowId = (await chrome.windows.getCurrent()).id;
-  await selectCurrentTab();
+  inspectorWindowId = (await chrome.windows.getCurrent()).id
+  await selectCurrentTab()
 
   if (chrome.tabs) {
     chrome.tabs.onActivated.addListener(({ windowId }) => {
-      if (windowId === inspectorWindowId) selectCurrentTab();
-    });
+      if (windowId === inspectorWindowId) selectCurrentTab()
+    })
 
     chrome.tabs.onUpdated.addListener((tabId, changes) => {
       if (
         tabId === state.tabId &&
-        (changes.url || changes.status === "complete")
+        (changes.url || changes.status === 'complete')
       ) {
-        storageRequestId++;
-        storagePendingUntil = 0;
-        state.storage = normalizeStorageSnapshot(null);
-        if (state.mode === "storage") requestStorageSnapshot();
-        render();
+        storageRequestId++
+        storagePendingUntil = 0
+        state.storage = normalizeStorageSnapshot(null)
+        if (state.mode !== 'fetch') requestStorageSnapshot()
+        render()
       }
-    });
-    chrome.tabs.onRemoved.addListener(() => selectCurrentTab());
-    chrome.tabs.onReplaced.addListener(() => selectCurrentTab());
+    })
+    chrome.tabs.onRemoved.addListener(() => selectCurrentTab())
+    chrome.tabs.onReplaced.addListener(() => selectCurrentTab())
   }
 }
 
 async function selectCurrentTab() {
-  const version = ++tabQueryVersion;
-  const tabId = await getCurrentTabId();
-  if (version !== tabQueryVersion) return;
-  if (typeof tabId !== "number") {
-    state.tabId = null;
-    state.records = [];
-    state.selectedId = null;
-    state.selectedStorageId = null;
-    state.storage = normalizeStorageSnapshot(null);
-    render();
-    elements.detailTitle.textContent = "No active tab";
-    elements.detailTitle.title = "";
+  const version = ++tabQueryVersion
+  const tabId = await getCurrentTabId()
+  if (version !== tabQueryVersion) return
+  if (typeof tabId !== 'number') {
+    state.tabId = null
+    state.records = []
+    state.selectedId = null
+    state.selectedStorageId = null
+    state.storage = normalizeStorageSnapshot(null)
+    render()
+    elements.detailTitle.textContent = 'No active tab'
+    elements.detailTitle.title = ''
     elements.detailMeta.textContent =
-      "Select a normal page tab to inspect JSON fetches.";
-    return;
+      'Select a normal page tab to inspect JSON fetches.'
+    return
   }
 
   if (tabId === state.tabId) {
-    return;
+    return
   }
 
-  storagePendingUntil = 0;
-  storageRequestId++;
-  state.tabId = tabId;
-  state.records = [];
-  state.selectedId = null;
-  state.selectedStorageId = null;
-  state.storage = normalizeStorageSnapshot(null);
-  render();
-  port.postMessage({ type: "init", tabId });
-  if (state.mode === "storage") requestStorageSnapshot();
+  storagePendingUntil = 0
+  storageRequestId++
+  state.tabId = tabId
+  state.records = []
+  state.selectedId = null
+  state.selectedStorageId = null
+  state.storage = normalizeStorageSnapshot(null)
+  render()
+  port.postMessage({ type: 'init', tabId })
+  if (state.mode !== 'fetch') requestStorageSnapshot()
 }
 
 async function getCurrentTabId() {
   const [tab] = await chrome.tabs.query({
     active: true,
     windowId: inspectorWindowId,
-  });
-  return tab?.id;
+  })
+  return tab?.id
 }
 
 function getVisibleRecords() {
   return state.records.filter((record) => {
     if (state.errorsOnly && record.ok) {
-      return false;
+      return false
     }
 
     if (!matchesMethodFilter(record.method)) {
-      return false;
+      return false
     }
 
     if (!state.filter) {
-      return true;
+      return true
     }
 
-    return record.searchText.includes(state.filter);
-  });
+    return record.searchText.includes(state.filter)
+  })
 }
 
 function matchesMethodFilter(method) {
-  const normalizedMethod = String(method || "").toUpperCase();
+  const normalizedMethod = String(method || '').toUpperCase()
 
-  if (state.methodFilter === "get") {
-    return normalizedMethod === "GET";
+  if (state.methodFilter === 'get') {
+    return normalizedMethod === 'GET'
   }
 
-  if (state.methodFilter === "write") {
-    return WRITE_METHODS.includes(normalizedMethod);
+  if (state.methodFilter === 'write') {
+    return WRITE_METHODS.includes(normalizedMethod)
   }
 
-  if (state.methodFilter === "other") {
+  if (state.methodFilter === 'other') {
     return (
-      normalizedMethod !== "GET" && !WRITE_METHODS.includes(normalizedMethod)
-    );
+      normalizedMethod !== 'GET' && !WRITE_METHODS.includes(normalizedMethod)
+    )
   }
 
-  return true;
+  return true
 }
 
 function getStorageEntries() {
-  return [...state.storage.local, ...state.storage.session];
+  return state.mode === 'cookies'
+    ? state.storage.cookies || []
+    : [...state.storage.local, ...state.storage.session]
 }
 
 function getSelectedRecord() {
-  return state.records.find((record) => record.id === state.selectedId);
+  return state.records.find((record) => record.id === state.selectedId)
 }
 
 function getSelectedStorageEntry() {
   return getStorageEntries().find(
     (entry) => entry.id === state.selectedStorageId,
-  );
+  )
 }
 
 function getVisibleStorageEntries() {
   return getStorageEntries().filter((entry) => {
     if (!state.filter) {
-      return true;
+      return true
     }
 
-    return entry.searchText.includes(state.filter);
-  });
+    return entry.searchText.includes(state.filter)
+  })
 }
 
 function render() {
-  renderModeChrome();
-  renderList();
-  renderDetail();
+  renderModeChrome()
+  renderList()
+  renderDetail()
 }
 
 function renderModeChrome() {
@@ -413,162 +455,189 @@ function renderModeChrome() {
     (storageEdit.tabId !== state.tabId ||
       storageEdit.documentId !== state.storage.documentId)
   ) {
-    storageEdit = null;
-    elements.storageEditor.close();
+    storageEdit = null
+    elements.storageEditor.close()
   }
-  elements.editStorageButton.classList.toggle(
-    "hidden",
-    state.mode !== "storage",
-  );
-  const entry = getSelectedStorageEntry();
-  let validJson = false;
+  elements.editStorageButton.classList.toggle('hidden', state.mode === 'fetch')
+  const entry = getSelectedStorageEntry()
+  elements.deleteStorageButton.classList.toggle(
+    'hidden',
+    state.mode === 'fetch',
+  )
+  elements.deleteStorageButton.disabled =
+    !entry ||
+    !state.storage.documentId ||
+    Boolean(state.storage.error) ||
+    Boolean(storageEdit)
+  let validJson = false
   try {
     if (entry) {
-      JSON.parse(entry.value);
-      validJson = true;
+      JSON.parse(entry.value)
+      validJson = true
     }
   } catch (_) {}
   elements.editStorageButton.disabled =
-    !validJson || !state.storage.documentId || Boolean(state.storage.error);
-  elements.fetchModeButton.classList.toggle("active", state.mode === "fetch");
+    Boolean(storageEdit) ||
+    (!validJson && entry?.area !== 'cookie') ||
+    !state.storage.documentId ||
+    Boolean(state.storage.error)
+  elements.editStorageButton.textContent =
+    entry?.area === 'cookie' ? 'Edit Cookie' : 'Edit JSON'
+  elements.fetchModeButton.classList.toggle('active', state.mode === 'fetch')
   elements.storageModeButton.classList.toggle(
-    "active",
-    state.mode === "storage",
-  );
+    'active',
+    state.mode === 'storage',
+  )
+  elements.cookiesModeButton.classList.toggle(
+    'active',
+    state.mode === 'cookies',
+  )
   elements.refreshStorageButton.classList.toggle(
-    "hidden",
-    state.mode !== "storage",
-  );
-  elements.methodFilterGroup.classList.toggle("hidden", state.mode !== "fetch");
-  elements.errorsOnlyLabel.classList.toggle("hidden", state.mode !== "fetch");
+    'hidden',
+    state.mode === 'fetch',
+  )
+  elements.methodFilterGroup.classList.toggle('hidden', state.mode !== 'fetch')
+  elements.errorsOnlyLabel.classList.toggle('hidden', state.mode !== 'fetch')
   elements.filterInput.placeholder =
-    state.mode === "fetch" ? "Filter URL or JSON" : "Filter key or value";
-  elements.copyButton.disabled = !getCopyText();
-  renderTreeActionButtons();
-  renderMethodFilterButtons();
+    state.mode === 'fetch' ? 'Filter URL or JSON' : 'Filter key or value'
+  elements.copyButton.disabled = !getCopyText()
+  renderTreeActionButtons()
+  renderMethodFilterButtons()
 }
 
 function renderTreeActionButtons() {
-  const disabled = !elements.treeView.querySelector("details");
-  elements.expandTreeButton.disabled = disabled;
-  elements.collapseTreeButton.disabled = disabled;
+  const disabled = !elements.treeView.querySelector('details')
+  elements.expandTreeButton.disabled = disabled
+  elements.collapseTreeButton.disabled = disabled
 }
 
 function renderEmptyDetail(title, message, emptyText) {
-  elements.detailTitle.textContent = title;
-  elements.detailTitle.title = "";
-  elements.detailMeta.textContent = message;
-  elements.treeView.replaceChildren(emptyState(emptyText));
-  elements.copyButton.disabled = true;
-  renderTreeActionButtons();
+  elements.detailTitle.textContent = title
+  elements.detailTitle.title = ''
+  elements.detailMeta.textContent = message
+  elements.treeView.replaceChildren(emptyState(emptyText))
+  elements.copyButton.disabled = true
+  renderTreeActionButtons()
 }
 
 function renderMethodFilterButtons() {
   for (const button of elements.methodFilterGroup.querySelectorAll(
-    "[data-method-filter]",
+    '[data-method-filter]',
   )) {
     button.classList.toggle(
-      "active",
+      'active',
       button.dataset.methodFilter === state.methodFilter,
-    );
+    )
   }
 }
 
 function renderList() {
-  if (state.mode === "storage") {
-    renderStorageList();
-    return;
+  if (state.mode !== 'fetch') {
+    renderStorageList()
+    return
   }
 
-  const records = getVisibleRecords();
+  const records = getVisibleRecords()
   const total = state.errorsOnly
     ? state.records.filter((record) => !record.ok).length
-    : state.records.length;
-  elements.countLabel.textContent = `${records.length} of ${total} requests`;
-  elements.requestList.replaceChildren(...records.map(renderRequestItem));
+    : state.records.length
+  elements.countLabel.textContent = `${records.length} of ${total} requests`
+  elements.requestList.replaceChildren(...records.map(renderRequestItem))
 }
 
 function renderStorageList() {
-  const entries = getVisibleStorageEntries();
-  const total = getStorageEntries().length;
-  elements.countLabel.textContent = `${entries.length} of ${total} storage items`;
-  elements.requestList.replaceChildren(...entries.map(renderStorageItem));
+  const entries = getVisibleStorageEntries()
+  const total = getStorageEntries().length
+  elements.countLabel.textContent = `${entries.length} of ${total} ${state.mode === 'cookies' ? 'cookies' : 'storage items'}`
+  elements.requestList.replaceChildren(...entries.map(renderStorageItem))
 }
 
 function renderRequestItem(record) {
-  const item = document.createElement("li");
-  item.className = `request-item${record.id === state.selectedId ? " selected" : ""}`;
-  item.addEventListener("click", () => {
+  const item = document.createElement('li')
+  item.className = `request-item${record.id === state.selectedId ? ' selected' : ''}`
+  item.addEventListener('click', () => {
     if (state.selectedId === record.id) {
-      return;
+      return
     }
 
-    state.selectedId = record.id;
-    render();
-  });
+    state.selectedId = record.id
+    render()
+  })
 
-  const method = document.createElement("span");
-  method.className = "method";
-  method.textContent = record.method;
+  const method = document.createElement('span')
+  method.className = 'method'
+  method.textContent = record.method
 
-  const middle = document.createElement("div");
-  middle.className = "url";
-  middle.title = record.url;
-  middle.textContent = compactUrl(record.url);
+  const middle = document.createElement('div')
+  middle.className = 'url'
+  middle.title = record.url
+  middle.textContent = compactUrl(record.url)
 
-  const status = document.createElement("span");
-  status.className = `status ${record.ok ? "ok" : "error"}`;
-  status.textContent = `${record.status} ${record.durationMs}ms`;
+  const status = document.createElement('span')
+  status.className = `status ${record.ok ? 'ok' : 'error'}`
+  status.textContent = `${record.status} ${record.durationMs}ms`
 
-  item.append(method, middle, status);
-  return item;
+  item.append(method, middle, status)
+  return item
 }
 
 function renderStorageItem(entry) {
-  const item = document.createElement("li");
-  item.className = `request-item${entry.id === state.selectedStorageId ? " selected" : ""}`;
-  item.addEventListener("click", () => {
+  const item = document.createElement('li')
+  item.className = `request-item${entry.id === state.selectedStorageId ? ' selected' : ''}`
+  item.addEventListener('click', () => {
     if (state.selectedStorageId === entry.id) {
-      return;
+      return
     }
 
-    state.selectedStorageId = entry.id;
-    render();
-  });
+    state.selectedStorageId = entry.id
+    render()
+  })
 
-  const area = document.createElement("span");
-  area.className = "area";
-  area.textContent = entry.area === "local" ? "L" : "S";
-  area.title = entry.area === "local" ? "Local Storage" : "Session Storage";
+  const area = document.createElement('span')
+  area.className = 'area'
+  area.textContent =
+    entry.area === 'cookie' ? 'C' : entry.area === 'local' ? 'L' : 'S'
+  area.title =
+    entry.area === 'cookie'
+      ? 'Cookie'
+      : entry.area === 'local'
+        ? 'Local Storage'
+        : 'Session Storage'
 
-  const key = document.createElement("div");
-  key.className = "url";
-  key.title = entry.key;
-  key.textContent = entry.key;
+  const key = document.createElement('div')
+  key.className = 'url'
+  key.title =
+    entry.area === 'cookie'
+      ? `${entry.name} · ${entry.domain}${entry.path}`
+      : entry.key
+  key.textContent =
+    entry.area === 'cookie'
+      ? `${entry.name} · ${entry.domain}${entry.path}`
+      : entry.key
 
-  const preview = document.createElement("span");
-  preview.className = "value-preview";
-  preview.title = entry.value;
-  preview.textContent = compactValue(entry.value);
+  const preview = document.createElement('span')
+  preview.className = 'value-preview'
+  preview.title = entry.value
+  preview.textContent = compactValue(entry.value)
 
-  item.append(area, key, preview);
-  return item;
+  item.append(area, key, preview)
+  return item
 }
 
 function renderDetail() {
-  if (state.mode === "storage") {
-    renderStorageDetail();
-    return;
+  if (state.mode !== 'fetch') {
+    renderStorageDetail()
+    return
   }
 
-  const record = getSelectedRecord();
+  const record = getSelectedRecord()
   if (!record) {
     renderEmptyDetail(
-      "No JSON request selected",
-      "Reload the page to capture startup requests.",
-      "No captured JSON payloads yet.",
-    );
-    return;
+      'No JSON request selected',
+      'Reload the page to capture startup requests.',
+      'No captured JSON payloads yet.',
+    )
+    return
   }
 
   elements.detailTitle.textContent = `${record.method} ${compactUrl(
@@ -577,72 +646,88 @@ function renderDetail() {
       includeOrigin: true,
       maxLength: DETAIL_URL_MAX_LENGTH,
     },
-  )}`;
-  elements.detailTitle.title = record.url;
+  )}`
+  elements.detailTitle.title = record.url
   elements.detailMeta.textContent = [
     record.transport,
     `${record.status} ${record.statusText}`,
     `${record.durationMs}ms`,
     new Date(record.timestamp).toLocaleTimeString(),
-  ].join(" · ");
+  ].join(' · ')
 
   if (record.parseError || record.truncated) {
     elements.treeView.replaceChildren(
-      emptyState(record.parseError || "Payload truncated"),
-      renderPrimitiveStorage(record.raw || "", "response"),
-    );
-  } else renderFilteredPayload(record.json, "response");
-  elements.copyButton.disabled = false;
-  renderTreeActionButtons();
+      emptyState(record.parseError || 'Payload truncated'),
+      renderPrimitiveStorage(record.raw || '', 'response'),
+    )
+  } else renderFilteredPayload(record.json, 'response')
+  elements.copyButton.disabled = false
+  renderTreeActionButtons()
 }
 
 function renderStorageDetail() {
-  const entry = getSelectedStorageEntry();
+  const entry = getSelectedStorageEntry()
   if (state.storage.error) {
     renderEmptyDetail(
-      "Storage unavailable",
+      'Storage unavailable',
       state.storage.error,
-      "Storage cannot be read on this page.",
-    );
-    return;
+      'Storage cannot be read on this page.',
+    )
+    return
   }
 
   if (!entry) {
     renderEmptyDetail(
-      "No storage item selected",
+      state.mode === 'cookies'
+        ? 'No cookie selected'
+        : 'No storage item selected',
       state.storage.origin ||
-        "Refresh storage after selecting a normal page tab.",
-      "No Local Storage or Session Storage items.",
-    );
-    return;
+        'Refresh storage after selecting a normal page tab.',
+      state.mode === 'cookies'
+        ? state.storage.cookieError || 'No cookies for this page.'
+        : 'No Local Storage or Session Storage items.',
+    )
+    return
   }
 
-  const parsed = parseMaybeJson(entry.value);
-  elements.detailTitle.textContent = `${entry.area === "local" ? "Local Storage" : "Session Storage"}: ${entry.key}`;
-  elements.detailTitle.title = entry.key;
+  const parsed = parseMaybeJson(entry.value)
+  elements.detailTitle.textContent =
+    entry.area === 'cookie'
+      ? `Cookie: ${entry.name}`
+      : `${entry.area === 'local' ? 'Local Storage' : 'Session Storage'}: ${entry.key}`
+  elements.detailTitle.title = entry.key
   elements.detailMeta.textContent = [
     state.storage.origin || state.storage.url,
     state.storage.timestamp
       ? new Date(state.storage.timestamp).toLocaleTimeString()
-      : "",
+      : '',
   ]
     .filter(Boolean)
-    .join(" · ");
+    .join(' · ')
 
+  if (entry.area === 'cookie') {
+    elements.detailMeta.textContent += ` · ${entry.domain}${entry.path} · ${entry.hostOnly ? 'Host-only' : 'Domain'} · ${entry.secure ? 'Secure' : 'Not Secure'} · ${entry.httpOnly ? 'HttpOnly' : 'Not HttpOnly'} · SameSite: ${entry.sameSite} · ${entry.session ? 'Session' : new Date(entry.expirationDate * 1000).toLocaleString()}${entry.partitionKey ? ` · Partition: ${entry.partitionKey.topLevelSite}` : ''}`
+  }
   if (parsed.ok) {
-    renderFilteredPayload(parsed.value, entry.key);
+    renderFilteredPayload(
+      parsed.value,
+      entry.area === 'cookie' ? entry.name : entry.key,
+    )
   } else {
     elements.treeView.replaceChildren(
-      renderPrimitiveStorage(entry.value, entry.key),
-    );
+      renderPrimitiveStorage(
+        entry.value,
+        entry.area === 'cookie' ? entry.name : entry.key,
+      ),
+    )
   }
-  elements.copyButton.disabled = false;
-  renderTreeActionButtons();
+  elements.copyButton.disabled = false
+  renderTreeActionButtons()
 }
 
 function setTreeOpen(open) {
-  for (const details of elements.treeView.querySelectorAll("details")) {
-    details.open = open;
+  for (const details of elements.treeView.querySelectorAll('details')) {
+    details.open = open
   }
 }
 
@@ -654,68 +739,68 @@ function renderFilteredPayload(value, key) {
     false,
     { remaining: 5000 },
     0,
-  );
+  )
   elements.treeView.replaceChildren(
-    tree || emptyState("No matching JSON keys or values."),
-  );
+    tree || emptyState('No matching JSON keys or values.'),
+  )
 }
 
 function renderJsonTree(
   value,
   key,
-  filter = "",
+  filter = '',
   matchKey = true,
   budget = { remaining: 5000 },
   depth = 0,
 ) {
   if (--budget.remaining < 0 || depth > 100)
     return emptyState(
-      "Tree display limit reached. Use Copy for the captured payload.",
-    );
-  const keyMatches = matchKey && normalizeSearchText(key).includes(filter);
+      'Tree display limit reached. Use Copy for the captured payload.',
+    )
+  const keyMatches = matchKey && normalizeSearchText(key).includes(filter)
 
-  if (value === null || typeof value !== "object") {
+  if (value === null || typeof value !== 'object') {
     const valueMatches = normalizeSearchText(
-      typeof value === "string" ? value : String(value),
-    ).includes(filter);
+      typeof value === 'string' ? value : String(value),
+    ).includes(filter)
     if (filter && !keyMatches && !valueMatches) {
-      return null;
+      return null
     }
 
-    const row = document.createElement("div");
-    row.className = "tree-row";
+    const row = document.createElement('div')
+    row.className = 'tree-row'
     row.append(
       renderKey(key),
-      document.createTextNode(": "),
+      document.createTextNode(': '),
       renderPrimitive(value),
-    );
-    return row;
+    )
+    return row
   }
 
-  const children = [];
+  const children = []
   for (const [childKey, childValue] of Object.entries(value)) {
-    if (budget.remaining < 0) break;
+    if (budget.remaining < 0) break
     const child = renderJsonTree(
       childValue,
       childKey,
-      keyMatches ? "" : filter,
+      keyMatches ? '' : filter,
       true,
       budget,
       depth + 1,
-    );
+    )
     if (child) {
-      children.push(child);
+      children.push(child)
     }
   }
 
   if (filter && !keyMatches && children.length === 0) {
-    return null;
+    return null
   }
 
-  const details = document.createElement("details");
-  details.open = true;
+  const details = document.createElement('details')
+  details.open = true
 
-  const summary = document.createElement("summary");
+  const summary = document.createElement('summary')
   summary.append(
     renderKey(key),
     document.createTextNode(
@@ -723,51 +808,51 @@ function renderJsonTree(
         ? `: Array(${value.length})`
         : `: Object(${Object.keys(value).length})`,
     ),
-  );
-  details.append(summary);
+  )
+  details.append(summary)
 
-  const container = document.createElement("div");
-  container.style.paddingLeft = "1.125rem";
+  const container = document.createElement('div')
+  container.style.paddingLeft = '1.125rem'
 
-  container.append(...children);
+  container.append(...children)
 
-  details.append(container);
-  return details;
+  details.append(container)
+  return details
 }
 
 function renderKey(key) {
-  const span = document.createElement("span");
-  span.className = "key";
-  span.textContent = key;
-  return span;
+  const span = document.createElement('span')
+  span.className = 'key'
+  span.textContent = key
+  return span
 }
 
 function renderPrimitive(value) {
-  const span = document.createElement("span");
-  span.className = value === null ? "null" : typeof value;
+  const span = document.createElement('span')
+  span.className = value === null ? 'null' : typeof value
   span.textContent =
-    typeof value === "string" ? JSON.stringify(value) : String(value);
-  return span;
+    typeof value === 'string' ? JSON.stringify(value) : String(value)
+  return span
 }
 
 function emptyState(text) {
-  const node = document.createElement("div");
-  node.className = "empty-state";
-  node.textContent = text;
-  return node;
+  const node = document.createElement('div')
+  node.className = 'empty-state'
+  node.textContent = text
+  return node
 }
 
 function requestStorageSnapshot() {
   if (
-    typeof state.tabId === "number" &&
+    typeof state.tabId === 'number' &&
     !storageEdit &&
     Date.now() >= storagePendingUntil
   ) {
-    storagePendingUntil = Date.now() + 5000;
+    storagePendingUntil = Date.now() + 5000
     try {
-      port.postMessage({ type: "getStorage", requestId: ++storageRequestId });
+      port.postMessage({ type: 'getStorage', requestId: ++storageRequestId })
     } catch (_) {
-      storagePendingUntil = 0;
+      storagePendingUntil = 0
     }
   }
 }
@@ -775,57 +860,72 @@ function requestStorageSnapshot() {
 // CSS-hidden inspector frames do not necessarily change document visibility.
 window.setInterval(() => {
   if (
-    state.mode === "storage" &&
-    document.visibilityState !== "hidden" &&
+    state.mode !== 'fetch' &&
+    document.visibilityState !== 'hidden' &&
     !window.frameElement?.hidden
   )
-    requestStorageSnapshot();
-}, 1000);
+    requestStorageSnapshot()
+}, 1000)
 
 function getCopyText() {
-  if (state.mode === "storage") {
-    const entry = getSelectedStorageEntry();
+  if (state.mode !== 'fetch') {
+    const entry = getSelectedStorageEntry()
     if (!entry) {
-      return "";
+      return ''
     }
 
-    const parsed = parseMaybeJson(entry.value);
-    return parsed.ok ? JSON.stringify(parsed.value, null, 2) : entry.value;
+    if (entry.area === 'cookie') return entry.value
+    const parsed = parseMaybeJson(entry.value)
+    return parsed.ok ? JSON.stringify(parsed.value, null, 2) : entry.value
   }
 
-  const record = getSelectedRecord();
+  const record = getSelectedRecord()
   if (!record) {
-    return "";
+    return ''
   }
 
-  return record.raw || JSON.stringify(record.json, null, 2);
+  return record.raw || JSON.stringify(record.json, null, 2)
 }
 
 function flashCopyButton() {
-  const originalText = elements.copyButton.textContent;
-  elements.copyButton.textContent = "Copied";
+  const originalText = elements.copyButton.textContent
+  elements.copyButton.textContent = 'Copied'
   window.setTimeout(() => {
-    elements.copyButton.textContent = originalText;
-  }, 900);
+    elements.copyButton.textContent = originalText
+  }, 900)
 }
 
 function normalizeStorageSnapshot(snapshot) {
   return {
-    documentId: snapshot?.documentId || "",
-    url: snapshot?.url || "",
-    origin: snapshot?.origin || "",
+    documentId: snapshot?.documentId || '',
+    url: snapshot?.url || '',
+    origin: snapshot?.origin || '',
     timestamp: snapshot?.timestamp || null,
-    local: prepareStorageEntries(snapshot?.local, "local"),
-    session: prepareStorageEntries(snapshot?.session, "session"),
-    error: snapshot?.error || "",
-  };
+    cookieError: snapshot?.cookieError || '',
+    cookies: (snapshot?.cookies || []).map((cookie) => ({
+      ...cookie,
+      area: 'cookie',
+      key: CookieStore.identity(cookie),
+      id: `cookie:${CookieStore.identity(cookie)}`,
+      expectedCookie: CookieStore.fingerprint(cookie),
+      searchText: buildSearchText([
+        cookie.name,
+        cookie.value,
+        cookie.domain,
+        cookie.path,
+      ]),
+    })),
+    local: prepareStorageEntries(snapshot?.local, 'local'),
+    session: prepareStorageEntries(snapshot?.session, 'session'),
+    error: snapshot?.error || '',
+  }
 }
 
 function prepareRecord(record) {
-  let json = null;
+  let json = null
   if (!record.truncated) {
     try {
-      json = JSON.parse(record.raw);
+      json = JSON.parse(record.raw)
     } catch (_) {}
   }
   return {
@@ -835,15 +935,15 @@ function prepareRecord(record) {
       record.url,
       record.method,
       record.statusText,
-      String(record.status || ""),
+      String(record.status || ''),
       record.raw,
     ]),
-  };
+  }
 }
 
 function prepareStorageEntries(entries, area) {
   if (!Array.isArray(entries)) {
-    return [];
+    return []
   }
 
   return entries.map((entry) => ({
@@ -851,69 +951,69 @@ function prepareStorageEntries(entries, area) {
     area,
     id: `${area}:${entry.key}`,
     searchText: buildSearchText([area, entry.key, entry.value]),
-  }));
+  }))
 }
 
 function buildSearchText(values) {
   return normalizeSearchText(
     values
-      .map((value) => String(value || "").slice(0, SEARCH_TEXT_LIMIT))
-      .join("\n"),
-  );
+      .map((value) => String(value || '').slice(0, SEARCH_TEXT_LIMIT))
+      .join('\n'),
+  )
 }
 
 function normalizeSearchText(value) {
-  return String(value || "").toLocaleLowerCase();
+  return String(value || '').toLocaleLowerCase()
 }
 
 function parseMaybeJson(value) {
-  const trimmed = String(value || "").trim();
-  if (!trimmed || !(trimmed.startsWith("{") || trimmed.startsWith("["))) {
-    return { ok: false, value };
+  const trimmed = String(value || '').trim()
+  if (!trimmed || !(trimmed.startsWith('{') || trimmed.startsWith('['))) {
+    return { ok: false, value }
   }
 
   try {
-    return { ok: true, value: JSON.parse(trimmed) };
+    return { ok: true, value: JSON.parse(trimmed) }
   } catch (_) {
-    return { ok: false, value };
+    return { ok: false, value }
   }
 }
 
 function renderPrimitiveStorage(value, key) {
-  const row = document.createElement("div");
-  row.className = "tree-row";
+  const row = document.createElement('div')
+  row.className = 'tree-row'
   row.append(
     renderKey(key),
-    document.createTextNode(": "),
+    document.createTextNode(': '),
     renderPrimitive(value),
-  );
-  return row;
+  )
+  return row
 }
 
 function compactValue(value) {
-  const text = String(value || "")
-    .replace(/\s+/g, " ")
-    .trim();
-  return text.length > 48 ? `${text.slice(0, 48)}...` : text;
+  const text = String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return text.length > 48 ? `${text.slice(0, 48)}...` : text
 }
 
 function compactUrl(url, options = {}) {
-  const { includeOrigin = false, maxLength = LIST_URL_MAX_LENGTH } = options;
+  const { includeOrigin = false, maxLength = LIST_URL_MAX_LENGTH } = options
 
   try {
-    const parsed = new URL(url);
-    const compacted = `${includeOrigin ? parsed.origin : ""}${parsed.pathname}${parsed.search}`;
-    return truncateText(compacted || parsed.href, maxLength);
+    const parsed = new URL(url)
+    const compacted = `${includeOrigin ? parsed.origin : ''}${parsed.pathname}${parsed.search}`
+    return truncateText(compacted || parsed.href, maxLength)
   } catch (_) {
-    return truncateText(url, maxLength);
+    return truncateText(url, maxLength)
   }
 }
 
 function truncateText(value, maxLength) {
-  const text = String(value || "");
+  const text = String(value || '')
   if (text.length <= maxLength) {
-    return text;
+    return text
   }
 
-  return `${text.slice(0, maxLength - 3)}...`;
+  return `${text.slice(0, maxLength - 3)}...`
 }

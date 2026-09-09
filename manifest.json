@@ -15,7 +15,8 @@
     "webRequest",
     "webNavigation",
     "storage",
-    "clipboardWrite"
+    "clipboardWrite",
+    "cookies"
   ],
   "background": {
     "service_worker": "src/background.js"

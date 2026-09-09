@@ -51,6 +51,10 @@ Storage auto-refresh pauses while editing JSON. It reads website storage locally
 
 Storage JSON values can be edited using Edit JSON and saved explicitly. Save updates only the selected Local Storage or Session Storage key on the inspected document; invalid JSON and values changed since inspection are rejected. Edits are saved to the website’s storage, not to extension history. The page may need to be reloaded to use the new value.
 
+Cookies matching the active page URL are listed in Cookies, including HttpOnly cookies. Edit Cookie saves the raw value without decoding it, preserving domain, path, expiry, Secure, HttpOnly, SameSite, cookie store, and partition attributes. Cookies refresh while the Cookies tab is visible and are not retained in extension history. Partitioned cookies are included when Chrome provides `cookies.getPartitionKey` (Chrome 132+); older supported versions show unpartitioned cookies.
+
+Delete removes only the selected Local Storage / Session Storage key or Cookie. Changes since inspection are rejected. Cookie deletion expires the exact domain, path, store, and partition, preserving other same-name cookies. Deletions apply to website/browser data and are not saved in extension history.
+
 ## Development
 
 There are no runtime dependencies. Run the tests with:

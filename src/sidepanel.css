@@ -116,7 +116,6 @@ body {
   flex: 0 1 auto;
   max-height: 42vh;
   padding: 0.625rem 0.75rem 0.5rem;
-  border-bottom: 1px solid var(--border);
   overflow: auto;
   min-height: 0;
 }

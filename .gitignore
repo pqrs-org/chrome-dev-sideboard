@@ -2,4 +2,5 @@
 dist/
 .ruff_cache/
 build/
+build.new/
 node_modules/

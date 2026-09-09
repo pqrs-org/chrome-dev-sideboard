@@ -18,7 +18,7 @@ const styleRules = {
 }
 
 export default defineConfig([
-  globalIgnores(['build/**', 'dist/**', 'node_modules/**']),
+  globalIgnores(['build/**', 'build.new/**', 'dist/**', 'node_modules/**']),
   {
     files: ['src/**/*.ts'],
     extends: [js.configs.recommended, tseslint.configs.recommended],

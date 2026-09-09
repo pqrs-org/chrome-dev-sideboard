@@ -1,4 +1,5 @@
 build/
+build.new/
 dist/
 node_modules/
 .ruff_cache/

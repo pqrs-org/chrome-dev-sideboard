@@ -2,9 +2,9 @@
   "name": "dev-sideboard",
   "private": true,
   "scripts": {
-    "build": "python3 scripts/build.py",
+    "build": "sh scripts/build.sh",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . && ruff check scripts",
+    "lint": "eslint . && ruff check scripts && sh -n scripts/build.sh",
     "test": "pnpm run build && node --test tests/*.test.js",
     "format": "pnpm run format:write",
     "format:check": "prettier --check . && ruff format --check scripts",

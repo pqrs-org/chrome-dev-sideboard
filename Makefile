@@ -1,4 +1,5 @@
 PRETTIER := prettier
+RUFF := ruff
 MAGICK := magick
 PRETTIER_FILES := \
 	manifest.json \
@@ -14,9 +15,11 @@ PRETTIER_FILES := \
 
 format:
 	$(PRETTIER) --write $(PRETTIER_FILES)
+	$(RUFF) format .
 
 format-check:
 	$(PRETTIER) --check $(PRETTIER_FILES)
+	$(RUFF) format --check .
 
 test:
 	node --test tests/*.test.js

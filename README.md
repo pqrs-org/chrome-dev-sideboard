@@ -41,7 +41,7 @@ See the [privacy policy](PRIVACY.md) for data handling and retention details.
 There are no runtime dependencies.
 
 - `make test` runs the tests.
-- `make format` formats the source and documentation.
+- `make format` formats Python scripts with Ruff and other source files and documentation with Prettier.
 - `make package` runs checks and creates the upload ZIP in `dist/`.
 
 See the [store listing](store/listing.md) and [submission notes](store/submission.md) for publication materials.

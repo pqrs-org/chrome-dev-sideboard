@@ -1,6 +1,6 @@
 'use strict'
 
-importScripts('network-stats.js', 'cookie-store.js', 'capture-background.js')
+importScripts('network-stats.js', 'cookie-store.js', 'storage-background.js')
 
 chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })

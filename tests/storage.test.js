@@ -8,19 +8,27 @@ function event() {
   const listeners = []
   return {
     addListener: (fn) => listeners.push(fn),
+    get size() {
+      return listeners.length
+    },
     emit: (...args) => listeners.forEach((fn) => fn(...args)),
   }
 }
 function worker(stored = {}) {
   let documentId = 'doc-1'
-  const runtime = { onMessage: event(), onConnect: event() }
+  const runtime = {
+    id: 'extension',
+    getURL: (path) => 'chrome-extension://extension/' + path,
+    onMessage: event(),
+    onConnect: event(),
+  }
   const tabs = { onRemoved: event(), onReplaced: event() }
   const navigation = {
     onCommitted: event(),
     getFrame: async () => ({ documentId }),
   }
   vm.runInNewContext(
-    fs.readFileSync(require.resolve('../src/capture-background.js'), 'utf8'),
+    fs.readFileSync(require.resolve('../src/storage-background.js'), 'utf8'),
     {
       URL,
       console,
@@ -49,99 +57,6 @@ function worker(stored = {}) {
     },
   }
 }
-test('capture history survives restart, rejects old documents and clears on navigation and close', async () => {
-  const stored = {}
-  let w = worker(stored)
-  const sender = { tab: { id: 1 }, frameId: 0, documentId: 'doc-1' }
-  const record = {
-    type: 'json-fetch-visualizer:record',
-    payload: {
-      id: '1',
-      url: 'https://user:pass@example.com/a#secret',
-      raw: '{"ok":true}',
-      status: 200,
-      ok: true,
-    },
-  }
-  w.runtime.onMessage.emit(record, sender)
-  await tick()
-  assert.equal(stored['captures:1'].records[0].url, 'https://example.com/a')
-  w = worker(stored)
-  w.runtime.onMessage.emit(
-    { ...record, payload: { ...record.payload, id: '2' } },
-    sender,
-  )
-  await tick()
-  assert.equal(stored['captures:1'].records.length, 2)
-  w.setDocument('doc-2')
-  w.navigation.onCommitted.emit({ tabId: 1, frameId: 0, documentId: 'doc-2' })
-  w.runtime.onMessage.emit(record, sender)
-  await tick()
-  assert.equal(stored['captures:1'], undefined)
-  w.runtime.onMessage.emit(record, { ...sender, documentId: 'doc-2' })
-  await tick()
-  assert.equal(stored['captures:1'].records.length, 1)
-  w.tabs.onRemoved.emit(1)
-  await tick()
-  assert.equal(stored['captures:1'], undefined)
-})
-test('capture bounds both individual payload and overall session history', async () => {
-  const stored = {}
-  const w = worker(stored)
-  for (let i = 0; i < 85; i++)
-    w.runtime.onMessage.emit(
-      {
-        type: 'json-fetch-visualizer:record',
-        payload: { id: String(i), raw: 'x'.repeat(120000) },
-      },
-      { tab: { id: 1 }, frameId: 0, documentId: 'doc-1' },
-    )
-  await tick()
-  const records = stored['captures:1'].records
-  assert.ok(records.length <= 80)
-  assert.ok(records.reduce((n, r) => n + JSON.stringify(r).length, 0) <= 512000)
-  assert.equal(records.at(-1).raw.length, 100000)
-  assert.equal(records.at(-1).truncated, true)
-})
-test('fetch capture preserves the response and limits clone reads', async () => {
-  const messages = []
-  let response = new Response('{"hello":"world"}', {
-    headers: { 'Content-Type': 'application/json' },
-  })
-  const window = {
-    fetch: async () => response,
-    postMessage: (m) => messages.push(m),
-  }
-  function XHR() {}
-  XHR.prototype.open = function () {}
-  XHR.prototype.send = function () {}
-  vm.runInNewContext(
-    fs.readFileSync(require.resolve('../src/capture.js'), 'utf8'),
-    {
-      window,
-      XMLHttpRequest: XHR,
-      URL,
-      TextDecoder,
-      performance,
-      crypto: { randomUUID: () => 'session' },
-      location: { href: 'https://example.com/' },
-    },
-  )
-  const actual = await window.fetch('/api')
-  assert.equal(actual, response)
-  assert.deepEqual(await actual.json(), { hello: 'world' })
-  for (let i = 0; i < 10 && messages.length < 2; i++) await tick()
-  assert.equal(messages.at(-1).payload.raw, '{"hello":"world"}')
-  assert.equal(messages.at(-1).payload.url, 'https://example.com/api')
-  response = new Response('"' + 'x'.repeat(1024 * 1024) + '"', {
-    headers: { 'Content-Type': 'application/json' },
-  })
-  const large = await window.fetch('/large')
-  assert.equal((await large.text()).length, 1024 * 1024 + 2)
-  for (let i = 0; i < 10 && messages.length < 3; i++) await tick()
-  assert.equal(messages.at(-1).payload.truncated, true)
-})
-
 test('storage edits update only the selected key and reject invalid JSON or stale values', () => {
   const local = new Map([
     ['settings', '{"enabled":false}'],
@@ -159,10 +74,12 @@ test('storage edits update only the selected key and reject invalid JSON or stal
   })
   let listener
   vm.runInNewContext(
-    fs.readFileSync(require.resolve('../src/capture-bridge.js'), 'utf8'),
+    fs.readFileSync(require.resolve('../src/storage-content.js'), 'utf8'),
     {
       window: {
-        addEventListener() {},
+        addEventListener() {
+          throw new Error('Storage must not listen to page messages')
+        },
         localStorage: storage(local),
         sessionStorage: storage(session),
       },
@@ -186,7 +103,7 @@ test('storage edits update only the selected key and reject invalid JSON or stal
     return result
   }
   const edit = {
-    type: 'json-fetch-visualizer:set-storage',
+    type: 'dev-sideboard:set-storage',
     area: 'local',
     key: 'settings',
     expectedValue: '{"enabled":false}',
@@ -210,7 +127,7 @@ test('storage edits update only the selected key and reject invalid JSON or stal
   )
   assert.equal(session.get('settings'), '{"count":2}')
   const textEdit = {
-    type: 'json-fetch-visualizer:set-storage',
+    type: 'dev-sideboard:set-storage',
     area: 'local',
     key: 'other',
     expectedValue: 'keep',
@@ -225,7 +142,7 @@ test('storage edits update only the selected key and reject invalid JSON or stal
   assert.equal(local.get('other'), '')
   local.set('other', 'keep')
   const deletion = {
-    type: 'json-fetch-visualizer:delete-storage',
+    type: 'dev-sideboard:delete-storage',
     area: 'local',
     key: 'other',
     expectedValue: 'keep',
@@ -260,7 +177,11 @@ test('storage writes are routed to the inspected document and rejected after nav
   }
   const replies = []
   const port = {
-    name: 'json-fetch-visualizer:panel',
+    name: 'dev-sideboard:panel',
+    sender: {
+      id: 'extension',
+      url: 'chrome-extension://extension/src/inspector.html',
+    },
     postMessage: (m) => replies.push(m),
     onMessage: event(),
     onDisconnect: event(),
@@ -290,52 +211,127 @@ test('storage writes are routed to the inspected document and rejected after nav
   assert.match(replies.at(-1).error, /page changed/)
 })
 
-test('fetch observer returns the original promise and preserves rejection even if reporting fails', async () => {
-  const failure = new TypeError('Failed to fetch')
-  let reject
-  const original = new Promise((_resolve, fail) => {
-    reject = fail
-  })
-  let observed
-  let nativeThis
-  let nativeArgs
-  const window = {
-    fetch: function (...args) {
-      nativeThis = this
-      nativeArgs = args
-      return original
-    },
+test('storage access rejects page ports and does not deliver a stale snapshot after switching tabs', async () => {
+  const w = worker()
+  let reads = 0
+  let finishRead
+  w.tabs.sendMessage = async () => {
+    reads++
+    return new Promise((resolve) => {
+      finishRead = resolve
+    })
+  }
+  const makePort = (sender) => ({
+    name: 'dev-sideboard:panel',
+    sender,
+    replies: [],
     postMessage(message) {
-      if (message.type.endsWith(':record')) {
-        observed = message.payload
-        throw new Error('Reporting unavailable')
+      this.replies.push(message)
+    },
+    onMessage: event(),
+    onDisconnect: event(),
+  })
+  for (const sender of [
+    { id: 'extension', url: 'https://example.com/', tab: { id: 1 } },
+    {
+      id: 'another-extension',
+      url: 'chrome-extension://extension/src/inspector.html',
+    },
+    { id: 'extension', url: 'chrome-extension://extension/other.html' },
+  ]) {
+    const port = makePort(sender)
+    w.runtime.onConnect.emit(port)
+    assert.equal(port.onMessage.size, 0)
+  }
+  assert.equal(w.runtime.onMessage.size, 1)
+  const port = makePort({
+    id: 'extension',
+    url: 'chrome-extension://extension/src/inspector.html',
+  })
+  w.runtime.onConnect.emit(port)
+  port.onMessage.emit({ type: 'init', tabId: 1 })
+  port.onMessage.emit({ type: 'getStorage', requestId: 1 })
+  await tick()
+  assert.equal(reads, 1)
+  port.onMessage.emit({ type: 'init', tabId: 2 })
+  finishRead({ local: [{ key: 'private', value: 'old-tab' }], session: [] })
+  await tick()
+  assert.equal(port.replies.length, 0)
+})
+
+test('page metadata preserves duplicates and reads current DOM without accessing storage', () => {
+  let listener
+  const tags = [
+    { property: 'og:image', content: 'one.png' },
+    { property: 'og:image', content: 'two.png' },
+    { name: 'description', content: '<b>literal</b>' },
+    { name: 'twitter:card', content: 'summary' },
+    { property: 'og:title', content: '' },
+  ]
+  const link = {
+    rel: 'alternate CANONICAL',
+    href: 'https://example.com/resolved',
+    getAttribute: () => '/resolved',
+  }
+  let mutationCallback
+  const notifications = []
+  const context = {
+    MutationObserver: class {
+      constructor(callback) {
+        mutationCallback = callback
       }
+      observe() {}
+    },
+    clearTimeout() {},
+    setTimeout(fn) {
+      fn()
+    },
+    chrome: {
+      runtime: {
+        onMessage: { addListener: (fn) => (listener = fn) },
+        sendMessage: async (message) => notifications.push(message),
+      },
+    },
+    document: {
+      querySelectorAll: (selector) =>
+        selector === 'link[rel]'
+          ? [link]
+          : tags.map((tag) => ({ getAttribute: (key) => tag[key] ?? null })),
     },
   }
-  function XHR() {}
-  XHR.prototype.open = function () {}
-  XHR.prototype.send = function () {}
   vm.runInNewContext(
-    fs.readFileSync(require.resolve('../src/capture.js'), 'utf8'),
-    {
-      window,
-      XMLHttpRequest: XHR,
-      URL,
-      TextDecoder,
-      performance,
-      crypto: { randomUUID: () => 'session' },
-      location: { href: 'https://example.com/' },
-    },
+    fs.readFileSync(require.resolve('../src/storage-content.js'), 'utf8'),
+    context,
   )
-  const options = { method: 'POST' }
-  const result = window.fetch('/api', options)
-  assert.equal(result, original)
-  assert.equal(nativeThis, window)
-  assert.equal(nativeArgs[0], '/api')
-  assert.equal(nativeArgs[1], options)
-  reject(failure)
-  await assert.rejects(result, (error) => error === failure)
-  await tick()
-  assert.equal(observed.status, 0)
-  assert.equal(observed.parseError, 'Failed to fetch')
+  let snapshot
+  const read = () =>
+    listener(
+      { type: 'dev-sideboard:get-metadata' },
+      {},
+      (value) => (snapshot = value),
+    )
+  read()
+  assert.equal(snapshot.canonical[0].value, 'https://example.com/resolved')
+  assert.deepEqual(
+    Array.from(snapshot.openGraph, (e) => e.value),
+    ['one.png', 'two.png', ''],
+  )
+  assert.equal(snapshot.description[0].value, '<b>literal</b>')
+  assert.equal(snapshot.twitter[0].value, 'summary')
+  tags[0].content = 'changed.png'
+  read()
+  assert.equal(snapshot.openGraph[0].value, 'changed.png')
+  mutationCallback([{ type: 'attributes', target: { matches: () => false } }])
+  assert.equal(notifications.length, 0)
+  mutationCallback([{ type: 'attributes', target: { matches: () => true } }])
+  assert.equal(notifications.length, 1)
+  assert.equal(notifications[0].type, 'dev-sideboard:metadata-changed')
+  mutationCallback([
+    {
+      type: 'childList',
+      addedNodes: [],
+      removedNodes: [{ nodeType: 1, matches: () => true }],
+    },
+  ])
+  assert.equal(notifications.length, 2)
 })

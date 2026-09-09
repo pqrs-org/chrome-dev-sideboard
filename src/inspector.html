@@ -3,14 +3,14 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Fetch / Storage</title>
+    <title>Page / Storage / Cookies</title>
     <link rel="stylesheet" href="inspector.css" />
   </head>
   <body>
     <main class="app">
       <div class="mode-tabs" role="group">
-        <button id="fetchModeButton" class="mode-tab active" type="button">
-          Fetch / XHR
+        <button id="metadataModeButton" class="mode-tab active" type="button">
+          Page
         </button>
         <button id="storageModeButton" class="mode-tab" type="button">
           Storage
@@ -19,74 +19,50 @@
           Cookies
         </button>
       </div>
-      <div class="workspace">
+      <section
+        id="metadataView"
+        class="metadata-view"
+        aria-label="Page metadata"
+      ></section>
+      <div id="storageWorkspace" class="workspace" hidden>
         <aside class="sidebar">
           <div class="toolbar">
             <input
               id="filterInput"
               type="search"
-              placeholder="Filter URL or JSON"
+              placeholder="Filter key or value"
             />
           </div>
           <div class="summary">
-            <div class="summary-primary">
-              <span id="countLabel">0 requests</span>
-              <label id="errorsOnlyLabel">
-                <input id="errorsOnlyInput" type="checkbox" />
-                Errors
-              </label>
-            </div>
-            <div id="methodFilterGroup" class="method-filter" role="group">
-              <button
-                class="method-filter-button active"
-                type="button"
-                data-method-filter="get"
-              >
-                GET
-              </button>
-              <button
-                class="method-filter-button"
-                type="button"
-                data-method-filter="write"
-              >
-                POST/PUT/PATCH
-              </button>
-              <button
-                class="method-filter-button"
-                type="button"
-                data-method-filter="other"
-              >
-                Other
-              </button>
-            </div>
+            <span id="countLabel">0 storage items</span>
           </div>
-          <ol id="requestList" class="request-list"></ol>
+          <ol id="entryList" class="entry-list"></ol>
         </aside>
         <section class="detail">
           <header class="detail-header">
             <div>
               <div id="detailTitle" class="detail-title">
-                No JSON request selected
+                No storage item selected
               </div>
               <div id="detailMeta" class="detail-meta">
-                Reload the page to capture startup requests.
+                Select a normal page tab to view storage.
               </div>
             </div>
             <input
-              id="payloadFilterInput"
-              class="payload-filter"
+              id="jsonFilterInput"
+              class="json-filter"
               type="search"
               placeholder="Filter JSON keys or values"
-              aria-label="Filter JSON payload"
+              aria-label="Filter JSON value"
             />
             <div class="tabs" role="group">
               <button id="toggleTreeButton" class="tab" type="button">
                 Collapse
               </button>
-              <button id="editStorageButton" class="tab hidden" type="button">
+              <button id="editStorageButton" class="tab" type="button">
                 Edit
               </button>
-              <button id="deleteStorageButton" class="tab hidden" type="button">
+              <button id="deleteStorageButton" class="tab" type="button">
                 Delete
               </button>
               <button
@@ -104,7 +80,7 @@
       </div>
     </main>
     <dialog id="storageEditor" aria-labelledby="storageEditorTitle">
-      <h2 id="storageEditorTitle">Edit JSON</h2>
+      <h2 id="storageEditorTitle">Edit value</h2>
       <textarea
         id="storageJsonInput"
         aria-label="Value"

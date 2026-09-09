@@ -9,7 +9,7 @@
   --accent: #1463ff;
   --on-accent: #ffffff;
   --error: #b42318;
-  --ok: #067647;
+
   --code-key: #7f56d9;
   --code-string: #067647;
   --code-number: #b54708;
@@ -26,7 +26,7 @@
     --accent: #78a6ff;
     --on-accent: #111418;
     --error: #f97066;
-    --ok: #32d583;
+
     --code-key: #b692f6;
     --code-string: #6ce9a6;
     --code-number: #fdb022;
@@ -179,36 +179,7 @@ button:disabled:hover {
   border-bottom: 1px solid var(--border);
 }
 
-.summary label {
-  align-items: center;
-  display: inline-flex;
-  gap: 0.375rem;
-}
-
-.summary-primary {
-  align-items: center;
-  display: inline-flex;
-  flex: 1 1 auto;
-  gap: 0.75rem;
-  min-width: 0;
-}
-
-#countLabel,
-#errorsOnlyLabel {
-  white-space: nowrap;
-}
-
-.method-filter {
-  display: inline-flex;
-  gap: 0.375rem;
-}
-
-.method-filter-button.active {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.request-list {
+.entry-list {
   flex: 1;
   min-height: 0;
   overflow-x: hidden;
@@ -218,7 +189,7 @@ button:disabled:hover {
   list-style: none;
 }
 
-.request-item {
+.entry-item {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) minmax(4.5rem, 26%);
   gap: 0.5rem;
@@ -227,14 +198,9 @@ button:disabled:hover {
   cursor: pointer;
 }
 
-.request-item:hover,
-.request-item.selected {
+.entry-item:hover,
+.entry-item.selected {
   background: var(--panel-soft);
-}
-
-.method {
-  color: var(--accent);
-  font-weight: 700;
 }
 
 .area {
@@ -243,7 +209,7 @@ button:disabled:hover {
   text-transform: uppercase;
 }
 
-.url {
+.entry-key {
   min-width: 0;
   overflow-wrap: anywhere;
   white-space: normal;
@@ -256,19 +222,6 @@ button:disabled:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.meta,
-.status {
-  color: var(--muted);
-}
-
-.status.ok {
-  color: var(--ok);
-}
-
-.status.error {
-  color: var(--error);
 }
 
 .detail {
@@ -312,7 +265,7 @@ button:disabled:hover {
   gap: 0.375rem;
 }
 
-.payload-filter {
+.json-filter {
   width: 100%;
 }
 
@@ -452,4 +405,47 @@ button:disabled:hover {
 #deleteStorageButton {
   color: var(--error);
   border-color: var(--error);
+}
+
+[hidden] {
+  display: none !important;
+}
+.metadata-view {
+  overflow: auto;
+  padding: 0.75rem;
+  background: var(--panel);
+}
+.metadata-view h2 {
+  font-size: 0.75rem;
+  margin: 1rem 0 0.375rem;
+}
+.metadata-view h2:first-child {
+  margin-top: 0;
+}
+.metadata-view dl {
+  margin: 0;
+}
+.metadata-view dt {
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.metadata-view dd {
+  margin: 0 0 0.625rem;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.metadata-image {
+  display: block;
+  max-width: 100%;
+  max-height: 16rem;
+  object-fit: contain;
+  margin-top: 0.375rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+}
+.metadata-image-error {
+  display: block;
+  color: var(--muted);
+  margin-top: 0.375rem;
 }

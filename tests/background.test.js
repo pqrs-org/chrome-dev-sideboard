@@ -58,6 +58,10 @@ test('manifest uses passive network permissions and opens a side panel', () => {
     'cookies',
   ])
   assert.equal(manifest.action.default_popup, undefined)
+  assert.equal(manifest.content_scripts.length, 1)
+  assert.equal(manifest.content_scripts[0].world, 'ISOLATED')
+  assert.notEqual(manifest.content_scripts[0].all_frames, true)
+  assert.deepEqual(manifest.content_scripts[0].js, ['src/storage-content.js'])
   assert.ok(
     fs.existsSync(require.resolve(`../${manifest.side_panel.default_path}`)),
   )

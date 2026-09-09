@@ -4,7 +4,7 @@ Prepared for version 1.1.0. These are draft answers based on the current code; t
 
 ## Single purpose
 
-Inspect the active page's title, network activity, JSON responses, and website storage in Chrome's side panel.
+Inspect the active page's title, metadata, network activity, website storage, and cookies in Chrome's side panel.
 
 ## Permission justifications
 
@@ -18,7 +18,7 @@ Displays the page title and network summary in a panel opened from the extension
 
 ### webRequest and HTTP/HTTPS host permissions
 
-Passively observes requests for the arbitrary websites the user visits. Request lifecycle events provide counts, durations, HTTP errors, and request failures. Response headers provide Content-Length estimates. Host access is needed for both requested URLs and initiators, including cross-origin resources. No blocking options are used; network measurement does not modify requests. HTTP/HTTPS content scripts additionally wrap fetch/XHR in the MAIN world for JSON response capture and bridge records to the extension.
+Passively observes requests for the arbitrary websites the user visits. Request lifecycle events provide counts, durations, HTTP errors, and request failures. Response headers provide Content-Length estimates. Host access is needed for both requested URLs and initiators, including cross-origin resources. No blocking options are used; network measurement does not modify requests. An isolated content script in the top frame reads page metadata (canonical links, descriptions, Open Graph, and Twitter Card tags) and reads or edits website Local Storage and Session Storage only in response to internal extension messages.
 
 ### webNavigation
 
@@ -26,7 +26,7 @@ Identifies main-document commits and restored pages so measurements reset when t
 
 ### storage
 
-Uses only storage.session to retain per-tab measurements and temporary pending-request metadata across service worker restarts. Current document URLs and identifiers support navigation matching. Up to 100 recent failures per tab retain URLs, methods, timestamps, and error codes for the details dialog. Data is cleared when tabs close or Chrome restarts; no measurements are persisted to disk or synchronized. JSON capture stores at most 80 records and 512,000 serialized characters per tab, capped at 100,000 payload characters per record.
+Uses only storage.session to retain per-tab measurements and temporary pending-request metadata across service worker restarts. Current document URLs and identifiers support navigation matching. Up to 100 recent failures per tab retain URLs, methods, timestamps, and error codes for the details dialog. Data is cleared when tabs close or Chrome restarts; no measurements are persisted to disk or synchronized.
 
 ### cookies
 
@@ -41,7 +41,7 @@ Select “No, I am not using remote code.” All executable JavaScript and style
 Disclose locally handled data as required by Chrome's policy:
 
 - Web history / web browsing activity: tab URLs and network activity are processed. The current main document URL and request metadata are retained temporarily in session memory.
-- Website content: the page title and response metadata are processed. JSON response bodies are captured in bounded session history. Local Storage and Session Storage values refresh about once per second while the Storage view is visible; polling pauses during JSON editing. These snapshots are not persisted by the extension. Such content can include personal information or authentication tokens; review applicable dashboard categories.
+- Website content: the page title, page metadata, and response metadata are processed. Page metadata updates when relevant tags change. Image previews load from page-specified image hosts without a Referer header. Local Storage and Session Storage values refresh about once per second while the Storage view is visible; polling pauses while editing. These snapshots are not persisted by the extension. Such content can include personal information or authentication tokens; review applicable dashboard categories.
 
 Review the current dashboard category definitions against PRIVACY.md. Raw response headers can contain sensitive information even though they are not retained. Do not claim that this extension handles no user data or only operates while its panel is open.
 
@@ -57,9 +57,10 @@ No login or paid account is required for the basic panel. Use Chrome 116 or late
 4. On a test site, load a missing resource and a resource from an unreachable endpoint. Check HTTP errors and request failures respectively. Click their counts to inspect URLs and error codes.
 5. Observe a response with Content-Length, a response without it, and cached responses. Verify that known sizes and unknown/cache counts remain separate.
 6. Reload or navigate to another document and verify reset. SPA history changes retain totals.
-7. Close and reopen the panel. Values remain in this session. Restart Chrome and reload a page to begin a new measurement.
-
-8. Open Fetch / Storage, reload a page that requests JSON through fetch and XHR, and verify filtering, tree expansion/collapse, and Raw. Switch to Storage and verify Local Storage and Session Storage values and automatic refresh. Select a JSON value, use Edit, and verify that Save updates only that key.
+7. Close and reopen the panel. Network measurements remain in this session. Restart Chrome and reload a page to begin a new measurement.
+8. Open Page and verify Canonical URL, Description, Open Graph, and Twitter Card fields. Change a tag in the page and verify automatic updates.
+9. Open Storage and verify Local Storage and Session Storage values, automatic refresh, filtering, JSON tree expansion/collapse, and Raw. Edit JSON and plain-text values, and delete an item; verify only the selected key changes.
+10. Open Cookies and verify values, attributes, and automatic refresh. Edit and delete a test cookie and verify only the selected cookie changes.
 
 ## Release checklist
 

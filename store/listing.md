@@ -8,7 +8,7 @@ Dev Sideboard
 
 ## Summary
 
-Inspect requests, storage, and cookies in the side panel.
+Inspect network activity, storage, and cookies in the side panel.
 
 ## Detailed description
 
@@ -24,7 +24,11 @@ Measurement starts automatically for HTTP and HTTPS traffic. Reload an existing 
 
 Durations include downloads, redirects, and authentication waits. Sizes use available Content-Length response headers and are not total network usage. Some browser, cache, and worker traffic cannot be observed.
 
-The extension observes network metadata and wraps page fetch/XHR APIs to capture JSON-like responses, without connecting a debugger. The Fetch / Storage view provides request and JSON filtering, tree expansion, raw text viewing, and on-demand Local Storage and Session Storage inspection and JSON editing, plus Cookie viewing and value editing. It processes titles, URLs, network metadata, response payloads, and requested storage values. Measurements and bounded JSON history stay in Chrome session memory and clear when the tab closes or Chrome restarts. They are not sent to the developer. There are no analytics or advertising services.
+The Page tab displays Canonical URLs, descriptions, Open Graph, and Twitter Card tags, with updates when tags change and image previews.
+
+The Storage and Cookies tabs provide filtering, JSON tree expansion, raw text viewing, editing, and deletion. Values refresh automatically while the inspector is visible.
+
+The extension processes page titles, URLs, page metadata, network metadata, and inspected storage and cookie values. It does not capture response bodies. Network measurements stay in Chrome session memory and clear when the tab closes or Chrome restarts. Storage and cookie snapshots are not persisted by the extension. No inspection data is sent to the developer. Image previews make ordinary image requests to the hosts specified by the page, without a Referer header.
 
 Requires Chrome 116 or later.
 

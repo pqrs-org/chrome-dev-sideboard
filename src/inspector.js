@@ -1,9 +1,6 @@
-const PANEL_PORT_NAME = 'json-fetch-visualizer:panel'
+const PANEL_PORT_NAME = 'dev-sideboard:panel'
 const SEARCH_TEXT_LIMIT = 12000
 const FILTER_DEBOUNCE_MS = 120
-const LIST_URL_MAX_LENGTH = 140
-const DETAIL_URL_MAX_LENGTH = 240
-const WRITE_METHODS = ['POST', 'PUT', 'PATCH']
 
 let port
 function connectPanel() {
@@ -12,26 +9,26 @@ function connectPanel() {
   port.onDisconnect.addListener(() =>
     window.setTimeout(() => {
       connectPanel()
-      if (typeof state.tabId === 'number')
+      if (typeof state.tabId === 'number') {
         port.postMessage({ type: 'init', tabId: state.tabId })
+        storagePendingUntil = 0
+        requestStorageSnapshot()
+      }
     }, 250),
   )
 }
 let filterTimer = 0
-let payloadFilterTimer = 0
+let jsonFilterTimer = 0
 let storageRequestId = 0
 let storagePendingUntil = 0
 
 const state = {
   tabId: null,
-  mode: 'fetch',
-  records: [],
-  selectedId: null,
+  mode: 'metadata',
+  metadata: null,
   filter: '',
-  payloadFilter: '',
+  jsonFilter: '',
   rawView: false,
-  methodFilter: 'get',
-  errorsOnly: false,
   storage: {
     url: '',
     origin: '',
@@ -46,6 +43,9 @@ const state = {
 let storageEdit = null
 let saveSequence = 0
 const elements = {
+  metadataModeButton: document.getElementById('metadataModeButton'),
+  metadataView: document.getElementById('metadataView'),
+  storageWorkspace: document.getElementById('storageWorkspace'),
   deleteStorageButton: document.getElementById('deleteStorageButton'),
   editStorageButton: document.getElementById('editStorageButton'),
   storageEditor: document.getElementById('storageEditor'),
@@ -54,24 +54,37 @@ const elements = {
   storageEditStatus: document.getElementById('storageEditStatus'),
   cancelStorageEdit: document.getElementById('cancelStorageEdit'),
   saveStorageEdit: document.getElementById('saveStorageEdit'),
-  fetchModeButton: document.getElementById('fetchModeButton'),
   storageModeButton: document.getElementById('storageModeButton'),
   cookiesModeButton: document.getElementById('cookiesModeButton'),
   filterInput: document.getElementById('filterInput'),
-  methodFilterGroup: document.getElementById('methodFilterGroup'),
-  errorsOnlyLabel: document.getElementById('errorsOnlyLabel'),
-  errorsOnlyInput: document.getElementById('errorsOnlyInput'),
   countLabel: document.getElementById('countLabel'),
-  requestList: document.getElementById('requestList'),
+  entryList: document.getElementById('entryList'),
   detailTitle: document.getElementById('detailTitle'),
   detailMeta: document.getElementById('detailMeta'),
-  payloadFilterInput: document.getElementById('payloadFilterInput'),
+  jsonFilterInput: document.getElementById('jsonFilterInput'),
   toggleTreeButton: document.getElementById('toggleTreeButton'),
   rawButton: document.getElementById('rawButton'),
   treeView: document.getElementById('treeView'),
 }
 
 function handlePanelMessage(message) {
+  if (message.type === 'metadataChanged') {
+    if (message.tabId === state.tabId && state.mode === 'metadata') {
+      storagePendingUntil = 0
+      requestStorageSnapshot()
+    }
+    return
+  }
+  if (message.type === 'metadataSnapshot') {
+    if (message.tabId !== state.tabId || message.requestId !== storageRequestId)
+      return
+    storagePendingUntil = 0
+    if (JSON.stringify(state.metadata) !== JSON.stringify(message.snapshot)) {
+      state.metadata = message.snapshot
+      renderMetadata()
+    }
+    return
+  }
   if (message.type === 'storageSaved') {
     if (
       !storageEdit ||
@@ -101,30 +114,6 @@ function handlePanelMessage(message) {
     render()
     return
   }
-  if (message.type === 'snapshot') {
-    if (typeof message.tabId === 'number' && message.tabId !== state.tabId) {
-      return
-    }
-
-    state.records = message.records.map(prepareRecord)
-    if (!state.records.some((record) => record.id === state.selectedId)) {
-      state.selectedId = state.records.at(-1)?.id || null
-    }
-    render()
-  }
-
-  if (message.type === 'record') {
-    if (message.record.tabId !== state.tabId) {
-      return
-    }
-
-    state.records = [...state.records, prepareRecord(message.record)].slice(-80)
-    if (!state.selectedId) {
-      state.selectedId = message.record.id
-    }
-    render()
-  }
-
   if (message.type === 'storageSnapshot') {
     if (message.tabId !== state.tabId) {
       return
@@ -229,17 +218,17 @@ elements.saveStorageEdit.addEventListener('click', () => {
   port.postMessage({ type: 'setStorage', ...storageEdit, value })
 })
 
-elements.fetchModeButton.addEventListener('click', () => {
-  state.mode = 'fetch'
-  render()
-})
-
 function selectStorageMode(mode) {
   state.mode = mode
+  storagePendingUntil = 0
+  storageRequestId++
   state.selectedStorageId = getStorageEntries().at(0)?.id || null
   requestStorageSnapshot()
   render()
 }
+elements.metadataModeButton.addEventListener('click', () =>
+  selectStorageMode('metadata'),
+)
 elements.storageModeButton.addEventListener('click', () =>
   selectStorageMode('storage'),
 )
@@ -255,30 +244,14 @@ elements.filterInput.addEventListener('input', () => {
   }, FILTER_DEBOUNCE_MS)
 })
 
-elements.payloadFilterInput.addEventListener('input', () => {
-  window.clearTimeout(payloadFilterTimer)
-  payloadFilterTimer = window.setTimeout(() => {
-    state.payloadFilter = normalizeSearchText(
-      elements.payloadFilterInput.value.trim(),
+elements.jsonFilterInput.addEventListener('input', () => {
+  window.clearTimeout(jsonFilterTimer)
+  jsonFilterTimer = window.setTimeout(() => {
+    state.jsonFilter = normalizeSearchText(
+      elements.jsonFilterInput.value.trim(),
     )
     renderDetail()
   }, FILTER_DEBOUNCE_MS)
-})
-
-elements.errorsOnlyInput.addEventListener('change', () => {
-  state.errorsOnly = elements.errorsOnlyInput.checked
-  renderList()
-})
-
-elements.methodFilterGroup.addEventListener('click', (event) => {
-  const button = event.target.closest('[data-method-filter]')
-  if (!button) {
-    return
-  }
-
-  state.methodFilter = button.dataset.methodFilter
-  renderList()
-  renderMethodFilterButtons()
 })
 
 elements.toggleTreeButton.addEventListener('click', () => {
@@ -314,8 +287,9 @@ async function initialize() {
       ) {
         storageRequestId++
         storagePendingUntil = 0
+        state.metadata = null
         state.storage = normalizeStorageSnapshot(null)
-        if (state.mode !== 'fetch') requestStorageSnapshot()
+        requestStorageSnapshot()
         render()
       }
     })
@@ -330,15 +304,15 @@ async function selectCurrentTab() {
   if (version !== tabQueryVersion) return
   if (typeof tabId !== 'number') {
     state.tabId = null
-    state.records = []
-    state.selectedId = null
+
     state.selectedStorageId = null
+    state.metadata = null
     state.storage = normalizeStorageSnapshot(null)
     render()
     elements.detailTitle.textContent = 'No active tab'
     elements.detailTitle.title = ''
     elements.detailMeta.textContent =
-      'Select a normal page tab to inspect JSON fetches.'
+      'Select a normal page tab to inspect storage and cookies.'
     return
   }
 
@@ -349,13 +323,13 @@ async function selectCurrentTab() {
   storagePendingUntil = 0
   storageRequestId++
   state.tabId = tabId
-  state.records = []
-  state.selectedId = null
+
   state.selectedStorageId = null
+  state.metadata = null
   state.storage = normalizeStorageSnapshot(null)
   render()
   port.postMessage({ type: 'init', tabId })
-  if (state.mode !== 'fetch') requestStorageSnapshot()
+  requestStorageSnapshot()
 }
 
 async function getCurrentTabId() {
@@ -366,52 +340,10 @@ async function getCurrentTabId() {
   return tab?.id
 }
 
-function getVisibleRecords() {
-  return state.records.filter((record) => {
-    if (state.errorsOnly && record.ok) {
-      return false
-    }
-
-    if (!matchesMethodFilter(record.method)) {
-      return false
-    }
-
-    if (!state.filter) {
-      return true
-    }
-
-    return record.searchText.includes(state.filter)
-  })
-}
-
-function matchesMethodFilter(method) {
-  const normalizedMethod = String(method || '').toUpperCase()
-
-  if (state.methodFilter === 'get') {
-    return normalizedMethod === 'GET'
-  }
-
-  if (state.methodFilter === 'write') {
-    return WRITE_METHODS.includes(normalizedMethod)
-  }
-
-  if (state.methodFilter === 'other') {
-    return (
-      normalizedMethod !== 'GET' && !WRITE_METHODS.includes(normalizedMethod)
-    )
-  }
-
-  return true
-}
-
 function getStorageEntries() {
   return state.mode === 'cookies'
     ? state.storage.cookies || []
     : [...state.storage.local, ...state.storage.session]
-}
-
-function getSelectedRecord() {
-  return state.records.find((record) => record.id === state.selectedId)
 }
 
 function getSelectedStorageEntry() {
@@ -431,6 +363,11 @@ function getVisibleStorageEntries() {
 }
 
 function render() {
+  const metadata = state.mode === 'metadata'
+  elements.metadataModeButton.classList.toggle('active', metadata)
+  elements.metadataView.hidden = !metadata
+  elements.storageWorkspace.hidden = metadata
+  renderMetadata()
   renderModeChrome()
   renderList()
   renderDetail()
@@ -445,12 +382,7 @@ function renderModeChrome() {
     storageEdit = null
     elements.storageEditor.close()
   }
-  elements.editStorageButton.classList.toggle('hidden', state.mode === 'fetch')
   const entry = getSelectedStorageEntry()
-  elements.deleteStorageButton.classList.toggle(
-    'hidden',
-    state.mode === 'fetch',
-  )
   elements.deleteStorageButton.disabled =
     !entry ||
     !state.storage.documentId ||
@@ -462,7 +394,6 @@ function renderModeChrome() {
     !state.storage.documentId ||
     Boolean(state.storage.error)
   elements.editStorageButton.textContent = 'Edit'
-  elements.fetchModeButton.classList.toggle('active', state.mode === 'fetch')
   elements.storageModeButton.classList.toggle(
     'active',
     state.mode === 'storage',
@@ -471,15 +402,8 @@ function renderModeChrome() {
     'active',
     state.mode === 'cookies',
   )
-  elements.methodFilterGroup.classList.toggle('hidden', state.mode !== 'fetch')
-  elements.errorsOnlyLabel.classList.toggle('hidden', state.mode !== 'fetch')
-  elements.filterInput.placeholder =
-    state.mode === 'fetch' ? 'Filter URL or JSON' : 'Filter key or value'
-  elements.rawButton.disabled = !(state.mode === 'fetch'
-    ? getSelectedRecord()
-    : getSelectedStorageEntry())
+  elements.rawButton.disabled = !entry
   renderTreeActionButtons()
-  renderMethodFilterButtons()
 }
 
 function renderTreeActionButtons() {
@@ -499,70 +423,16 @@ function renderEmptyDetail(title, message, emptyText) {
   renderTreeActionButtons()
 }
 
-function renderMethodFilterButtons() {
-  for (const button of elements.methodFilterGroup.querySelectorAll(
-    '[data-method-filter]',
-  )) {
-    button.classList.toggle(
-      'active',
-      button.dataset.methodFilter === state.methodFilter,
-    )
-  }
-}
-
 function renderList() {
-  if (state.mode !== 'fetch') {
-    renderStorageList()
-    return
-  }
-
-  const records = getVisibleRecords()
-  const total = state.errorsOnly
-    ? state.records.filter((record) => !record.ok).length
-    : state.records.length
-  elements.countLabel.textContent = `${records.length} of ${total} requests`
-  elements.requestList.replaceChildren(...records.map(renderRequestItem))
-}
-
-function renderStorageList() {
   const entries = getVisibleStorageEntries()
   const total = getStorageEntries().length
   elements.countLabel.textContent = `${entries.length} of ${total} ${state.mode === 'cookies' ? 'cookies' : 'storage items'}`
-  elements.requestList.replaceChildren(...entries.map(renderStorageItem))
-}
-
-function renderRequestItem(record) {
-  const item = document.createElement('li')
-  item.className = `request-item${record.id === state.selectedId ? ' selected' : ''}`
-  item.addEventListener('click', () => {
-    if (state.selectedId === record.id) {
-      return
-    }
-
-    state.selectedId = record.id
-    render()
-  })
-
-  const method = document.createElement('span')
-  method.className = 'method'
-  method.textContent = record.method
-
-  const middle = document.createElement('div')
-  middle.className = 'url'
-  middle.title = record.url
-  middle.textContent = compactUrl(record.url)
-
-  const status = document.createElement('span')
-  status.className = `status ${record.ok ? 'ok' : 'error'}`
-  status.textContent = `${record.status} ${record.durationMs}ms`
-
-  item.append(method, middle, status)
-  return item
+  elements.entryList.replaceChildren(...entries.map(renderStorageItem))
 }
 
 function renderStorageItem(entry) {
   const item = document.createElement('li')
-  item.className = `request-item${entry.id === state.selectedStorageId ? ' selected' : ''}`
+  item.className = `entry-item${entry.id === state.selectedStorageId ? ' selected' : ''}`
   item.addEventListener('click', () => {
     if (state.selectedStorageId === entry.id) {
       return
@@ -584,7 +454,7 @@ function renderStorageItem(entry) {
         : 'Session Storage'
 
   const key = document.createElement('div')
-  key.className = 'url'
+  key.className = 'entry-key'
   key.title =
     entry.area === 'cookie'
       ? `${entry.name} · ${entry.domain}${entry.path}`
@@ -606,49 +476,8 @@ function renderStorageItem(entry) {
 function renderDetail() {
   elements.rawButton.setAttribute('aria-pressed', String(state.rawView))
   elements.rawButton.classList.toggle('active', state.rawView)
-  elements.payloadFilterInput.disabled = state.rawView
-  if (state.mode !== 'fetch') {
-    renderStorageDetail()
-    return
-  }
-
-  const record = getSelectedRecord()
-  if (!record) {
-    renderEmptyDetail(
-      'No JSON request selected',
-      'Reload the page to capture startup requests.',
-      'No captured JSON payloads yet.',
-    )
-    return
-  }
-
-  elements.detailTitle.textContent = `${record.method} ${compactUrl(
-    record.url,
-    {
-      includeOrigin: true,
-      maxLength: DETAIL_URL_MAX_LENGTH,
-    },
-  )}`
-  elements.detailTitle.title = record.url
-  elements.detailMeta.textContent = [
-    record.transport,
-    `${record.status} ${record.statusText}`,
-    `${record.durationMs}ms`,
-    new Date(record.timestamp).toLocaleTimeString(),
-  ].join(' · ')
-
-  if (state.rawView) {
-    renderRaw(record.raw ?? '')
-    if (record.truncated)
-      elements.detailMeta.textContent += ' · Captured payload truncated'
-  } else if (record.parseError || record.truncated) {
-    elements.treeView.replaceChildren(
-      emptyState(record.parseError || 'Payload truncated'),
-      renderPrimitiveStorage(record.raw || '', 'response'),
-    )
-  } else renderFilteredPayload(record.json, 'response')
-  elements.rawButton.disabled = false
-  renderTreeActionButtons()
+  elements.jsonFilterInput.disabled = state.rawView
+  renderStorageDetail()
 }
 
 function renderStorageDetail() {
@@ -696,7 +525,7 @@ function renderStorageDetail() {
   if (state.rawView) {
     renderRaw(entry.value)
   } else if (parsed.ok) {
-    renderFilteredPayload(
+    renderFilteredJson(
       parsed.value,
       entry.area === 'cookie' ? entry.name : entry.key,
     )
@@ -718,11 +547,11 @@ function setTreeOpen(open) {
   }
 }
 
-function renderFilteredPayload(value, key) {
+function renderFilteredJson(value, key) {
   const tree = renderJsonTree(
     value,
     key,
-    state.payloadFilter,
+    state.jsonFilter,
     false,
     { remaining: 5000 },
     0,
@@ -742,7 +571,7 @@ function renderJsonTree(
 ) {
   if (--budget.remaining < 0 || depth > 100)
     return emptyState(
-      'Tree display limit reached. Use Raw for the captured payload.',
+      'Tree display limit reached. Use Raw to view the complete value.',
     )
   const keyMatches = matchKey && normalizeSearchText(key).includes(filter)
 
@@ -837,7 +666,10 @@ function requestStorageSnapshot() {
   ) {
     storagePendingUntil = Date.now() + 5000
     try {
-      port.postMessage({ type: 'getStorage', requestId: ++storageRequestId })
+      port.postMessage({
+        type: state.mode === 'metadata' ? 'getMetadata' : 'getStorage',
+        requestId: ++storageRequestId,
+      })
     } catch (_) {
       storagePendingUntil = 0
     }
@@ -847,7 +679,7 @@ function requestStorageSnapshot() {
 // CSS-hidden inspector frames do not necessarily change document visibility.
 window.setInterval(() => {
   if (
-    state.mode !== 'fetch' &&
+    state.mode !== 'metadata' &&
     document.visibilityState !== 'hidden' &&
     !window.frameElement?.hidden
   )
@@ -884,26 +716,6 @@ function normalizeStorageSnapshot(snapshot) {
     local: prepareStorageEntries(snapshot?.local, 'local'),
     session: prepareStorageEntries(snapshot?.session, 'session'),
     error: snapshot?.error || '',
-  }
-}
-
-function prepareRecord(record) {
-  let json = null
-  if (!record.truncated) {
-    try {
-      json = JSON.parse(record.raw)
-    } catch (_) {}
-  }
-  return {
-    ...record,
-    json,
-    searchText: buildSearchText([
-      record.url,
-      record.method,
-      record.statusText,
-      String(record.status || ''),
-      record.raw,
-    ]),
   }
 }
 
@@ -963,23 +775,85 @@ function compactValue(value) {
   return text.length > 48 ? `${text.slice(0, 48)}...` : text
 }
 
-function compactUrl(url, options = {}) {
-  const { includeOrigin = false, maxLength = LIST_URL_MAX_LENGTH } = options
-
-  try {
-    const parsed = new URL(url)
-    const compacted = `${includeOrigin ? parsed.origin : ''}${parsed.pathname}${parsed.search}`
-    return truncateText(compacted || parsed.href, maxLength)
-  } catch (_) {
-    return truncateText(url, maxLength)
+function renderMetadata() {
+  if (state.mode !== 'metadata') return
+  const data = state.metadata
+  if (!data || data.error) {
+    elements.metadataView.replaceChildren(
+      emptyState(
+        data?.error ||
+          (state.tabId === null
+            ? 'Select a normal page tab to view page metadata.'
+            : 'Loading page metadata…'),
+      ),
+    )
+    return
   }
+  const nodes = []
+  for (const [key, title] of [
+    ['canonical', 'Canonical URL'],
+    ['description', 'Description'],
+    data.openGraph?.length
+      ? ['openGraph', 'Open Graph']
+      : ['twitter', 'Twitter Card'],
+  ]) {
+    const heading = document.createElement('h2')
+    heading.textContent = title
+    nodes.push(heading)
+    const entries = data[key] || []
+    if (!entries.length) {
+      nodes.push(emptyState('Not specified'))
+      continue
+    }
+    const list = document.createElement('dl')
+    for (const entry of entries) {
+      const name = document.createElement('dt')
+      name.textContent = entry.key
+      const value = document.createElement('dd')
+      value.textContent = entry.value || '(empty)'
+      const imageUrl = metadataImageUrl(entry, data.baseUrl)
+      if (imageUrl) {
+        const image = document.createElement('img')
+        image.className = 'metadata-image'
+        image.alt = entry.key
+        image.loading = 'lazy'
+        image.referrerPolicy = 'no-referrer'
+        image.addEventListener('error', () => {
+          const error = document.createElement('span')
+          error.className = 'metadata-image-error'
+          error.textContent = 'Image unavailable'
+          image.replaceWith(error)
+        })
+        image.src = imageUrl
+        value.append(image)
+      }
+      list.append(name, value)
+    }
+    nodes.push(list)
+  }
+  elements.metadataView.replaceChildren(...nodes)
 }
 
-function truncateText(value, maxLength) {
-  const text = String(value || '')
-  if (text.length <= maxLength) {
-    return text
+function metadataImageUrl(entry, baseUrl) {
+  if (
+    ![
+      'og:image',
+      'og:image:url',
+      'og:image:secure_url',
+      'twitter:image',
+      'twitter:image:src',
+    ].includes(entry.key.toLowerCase()) ||
+    !entry.value.trim()
+  )
+    return null
+  try {
+    const url = new URL(entry.value, baseUrl)
+    return ['http:', 'https:'].includes(url.protocol) &&
+      !url.username &&
+      !url.password
+      ? url.href
+      : null
+  } catch (_) {
+    return null
   }
-
-  return `${text.slice(0, maxLength - 3)}...`
 }

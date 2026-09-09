@@ -38,7 +38,7 @@ class Element {
     return []
   }
 }
-test('inspector loads scoped snapshots, filters JSON, shows raw values, and reads storage on demand', async () => {
+test('inspector opens Page, rejects stale metadata, refreshes scoped data, filters values, and edits Storage and Cookies', async () => {
   const elements = new Map()
   const sent = []
   let receive
@@ -99,29 +99,116 @@ test('inspector loads scoped snapshots, filters JSON, shows raw values, and read
     },
   )
   await tick()
+  assert.equal(sent.at(-1).type, 'getMetadata')
+  const requestId = sent.at(-1).requestId
+  receive({
+    type: 'metadataSnapshot',
+    tabId: 2,
+    requestId,
+    snapshot: { error: 'wrong tab' },
+  })
+  assert.notEqual(
+    elements.get('metadataView').children[0].textContent,
+    'wrong tab',
+  )
+  receive({
+    type: 'metadataSnapshot',
+    tabId: 1,
+    requestId: requestId - 1,
+    snapshot: { error: 'old response' },
+  })
+  assert.notEqual(
+    elements.get('metadataView').children[0].textContent,
+    'old response',
+  )
+  receive({
+    type: 'metadataSnapshot',
+    tabId: 1,
+    requestId,
+    snapshot: {
+      canonical: [{ key: 'Canonical URL', value: 'https://example.com/' }],
+      openGraph: [{ key: 'og:title', value: '<script>example</script>' }],
+      twitter: [{ key: 'twitter:title', value: 'Twitter title' }],
+    },
+  })
+  assert.equal(
+    elements.get('metadataView').children[1].children[1].textContent,
+    'https://example.com/',
+  )
+  assert.equal(
+    elements.get('metadataView').children[5].children[1].textContent,
+    '<script>example</script>',
+  )
+  assert.equal(elements.get('metadataView').children.length, 6)
+  assert.equal(
+    elements.get('metadataView').children[4].textContent,
+    'Open Graph',
+  )
+  receive({
+    type: 'metadataSnapshot',
+    tabId: 1,
+    requestId,
+    snapshot: {
+      openGraph: [],
+      twitter: [{ key: 'twitter:title', value: 'Twitter title' }],
+    },
+  })
+  assert.equal(
+    elements.get('metadataView').children[4].textContent,
+    'Twitter Card',
+  )
+  assert.equal(
+    elements.get('metadataView').children[5].children[1].textContent,
+    'Twitter title',
+  )
+  assert.equal(elements.get('storageWorkspace').hidden, true)
+  const beforeMetadataPoll = sent.length
+  poll()
+  assert.equal(sent.length, beforeMetadataPoll, 'Page does not poll')
+  receive({ type: 'metadataChanged', tabId: 2 })
+  assert.equal(sent.length, beforeMetadataPoll)
+  receive({ type: 'metadataChanged', tabId: 1 })
+  assert.equal(sent.at(-1).type, 'getMetadata')
+  receive({
+    type: 'metadataSnapshot',
+    tabId: 1,
+    requestId: sent.at(-1).requestId,
+    snapshot: {
+      baseUrl: 'https://example.com/base/',
+      openGraph: [
+        { key: 'og:image', value: 'preview.png' },
+        { key: 'og:image:width', value: '1200' },
+        { key: 'og:image', value: 'javascript:alert(1)' },
+        { key: 'og:image', value: 'https://user:secret@example.com/a' },
+      ],
+    },
+  })
+  const imageEntries = elements.get('metadataView').children[5].children
+  const image = imageEntries[1].children[0]
+  assert.equal(image.src, 'https://example.com/base/preview.png')
+  assert.equal(image.referrerPolicy, 'no-referrer')
+  assert.equal(imageEntries[3].children.length, 0)
+  assert.equal(imageEntries[5].children.length, 0)
+  assert.equal(imageEntries[7].children.length, 0)
+  elements.get('storageModeButton').listeners.click()
+  assert.equal(elements.get('metadataView').hidden, true)
   assert.equal(queries[0].windowId, 7)
   assert.equal(
     sent.some((m) => m.type === 'getStorage'),
-    false,
+    true,
   )
   activated({ windowId: 8 })
   assert.equal(queries.length, 1)
   receive({
-    type: 'snapshot',
+    type: 'storageSnapshot',
     tabId: 1,
-    records: [
-      {
-        id: 'r',
-        method: 'GET',
-        status: 200,
-        ok: true,
-        raw: '{"hello":"world"}',
-        url: 'https://example.com/api',
-        timestamp: 1,
-      },
-    ],
+    snapshot: {
+      documentId: 'doc-1',
+      local: [{ key: 'hello', value: '{"hello":"world"}' }],
+      session: [],
+    },
   })
-  assert.equal(elements.get('requestList').children.length, 1)
+  assert.equal(elements.get('entryList').children.length, 1)
   const nodes = [{ open: true }, { open: true }]
   const treeView = elements.get('treeView')
   treeView.querySelectorAll = () => nodes
@@ -153,9 +240,9 @@ test('inspector loads scoped snapshots, filters JSON, shows raw values, and read
   )
   elements.get('filterInput').value = 'missing'
   elements.get('filterInput').listeners.input()
-  assert.equal(elements.get('requestList').children.length, 0)
-  elements.get('storageModeButton').listeners.click()
-  assert.equal(sent.at(-1).type, 'getStorage')
+  assert.equal(elements.get('entryList').children.length, 0)
+  elements.get('filterInput').value = ''
+  elements.get('filterInput').listeners.input()
   receive({
     type: 'storageSnapshot',
     tabId: 1,
@@ -314,5 +401,5 @@ test('inspector loads scoped snapshots, filters JSON, shows raw values, and read
     snapshot: { documentId: 'doc-1', local: [], session: [], cookies: [] },
   })
   assert.equal(elements.get('deleteStorageButton').disabled, true)
-  assert.equal(elements.get('requestList').children.length, 0)
+  assert.equal(elements.get('entryList').children.length, 0)
 })

@@ -1,14 +1,15 @@
 # Dev Sideboard
 
-A Chrome extension that displays the page title, network measurements, JSON responses, and website storage in the side panel.
+A Chrome extension that displays the page title, metadata, network measurements, website storage, and cookies in the side panel.
 
 ## Features
 
 - Open the side panel directly from the extension icon
 - Read the full page title, with automatic line wrapping
 - Follow the active tab in each window
-- Inspect JSON fetch/XHR responses and local/session storage
-- Filter requests by URL, payload, method, or errors; search, expand, collapse, and switch between JSON trees and raw text
+- Inspect Canonical URLs, descriptions, Open Graph, and Twitter Card tags
+- Inspect, edit, and delete Local Storage, Session Storage, and Cookie values
+- Filter storage keys and values; search, expand, collapse, and switch between JSON trees and raw text
 - Track request counts, requests in progress, HTTP errors, and request failures
 - Click HTTP error or request failure counts to inspect URLs and error codes (latest 100 failures per tab)
 - See average and longest completed request durations
@@ -25,7 +26,7 @@ Requires Chrome 116 or later.
 5. Reload the page to measure it from the beginning.
 
 HTTP and HTTPS traffic is observed automatically using the requested website permissions.
-No debugger connection or start button is needed. JSON capture wraps page fetch/XHR APIs at document start, including HTTP/HTTPS subframes. It reads response copies without changing request parameters or sending probe requests. Reload existing pages after installing or updating.
+No debugger connection or start button is needed. Reload already open pages after installing or updating the extension to refresh its content scripts.
 
 ## Measurement scope
 
@@ -39,15 +40,17 @@ Only requests Chrome exposes and associates with a tab can be counted. Some cach
 
 Measurements use in-memory Chrome session storage. They survive background worker suspension and closing the panel, but are cleared when the tab closes, the browser restarts, or the extension reloads.
 
-When upgrading from the title chip version, reload pages that still show the old chip.
+## Page metadata
 
-## JSON and storage inspection
+The Page tab shows Canonical URLs, descriptions, Open Graph, and Twitter Card tags from the active page’s DOM. Open Graph takes priority; Twitter Card is shown only when Open Graph tags are absent. Duplicate tags are preserved and relative canonical links are resolved against the document base URL. Metadata is read when the Page tab opens and updates when relevant tags change. Open Graph and Twitter images appear as previews below their URLs; loading previews requests those images from their hosts without sending a Referer header.
 
-Below the compact network summary, the Fetch / Storage view integrates the tools from `tekezo/chrome-devtools`. JSON-like fetch/XHR responses are captured automatically, even when the panel is closed. Worker requests and requests made before the capture script starts are not included. Fetch capture stops reading at 1 MiB; saved payload text is limited to 100,000 characters per record. Each tab retains at most 80 records and 512,000 serialized characters in session memory, with older records evicted first. Chrome's shared session quota may further limit capture. Truncated payloads are shown as text. JSON trees display at most 5,000 nodes and 100 nesting levels.
+## Storage and cookie inspection
 
-History resets on a new document and is removed on tab close or browser restart. Local Storage and Session Storage are read from the top frame when opening the Storage view, and automatically about once per second while the Storage view is visible; these values are not persisted by the extension. Raw displays the captured payload or stored value without formatting or decoding. Captured data may contain private application data. Page scripts can interfere with or imitate capture events, so this is a development aid rather than a tamper-proof network trace.
+Below the compact network summary, separate Storage and Cookies tabs provide inspection and editing. Local Storage and Session Storage are read from the top frame; cookies are read through Chrome’s cookie API. Values refresh about once per second while the inspector is visible and are not persisted by the extension.
 
-Storage auto-refresh pauses while editing JSON. It reads website storage locally and does not reload the page or send network requests.
+Raw displays the original stored value. JSON values can be searched and expanded as trees, with a display limit of 5,000 nodes and 100 nesting levels. Storage and cookie values may contain private application data.
+
+Auto-refresh pauses while editing a value. It reads website storage locally and does not reload the page or send network requests.
 
 Storage values can be edited using Edit and saved explicitly. Non-JSON values, including empty strings and whitespace, are saved exactly as entered. Save updates only the selected Local Storage or Session Storage key on the inspected document; invalid JSON and values changed since inspection are rejected. Edits are saved to the website’s storage, not to extension history. The page may need to be reloaded to use the new value.
 

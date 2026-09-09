@@ -1,73 +1,47 @@
 # Dev Sideboard
 
-A Chrome extension that displays the page title, metadata, network measurements, website storage, and cookies in the side panel.
+Inspect page information, network activity, storage, and cookies in Chrome’s side panel.
 
 ## Features
 
-- Open the side panel directly from the extension icon
-- Read the full page title, with automatic line wrapping
-- Follow the active tab in each window
-- Inspect Canonical URLs, descriptions, Open Graph, and Twitter Card tags
-- Inspect, edit, and delete Local Storage, Session Storage, and Cookie values
-- Filter storage keys and values; search, expand, collapse, and switch between JSON trees and raw text
-- Track request counts, requests in progress, HTTP errors, and request failures
-- Click HTTP error or request failure counts to inspect URLs and error codes (latest 100 failures per tab)
-- See average and longest completed request durations
-- See known final response body sizes, unknown-size responses, and cached responses
+- Full page titles, following the active tab in each window
+- Canonical URLs, descriptions, and Open Graph or Twitter Card metadata with image previews
+- Request counts, error details, durations, and response size estimates
+- Inspect, edit, and delete Local Storage, Session Storage, and Cookies, with filtering, JSON tree navigation, and raw text viewing
 
 ## Installation
 
 Requires Chrome 142 or later.
 
-1. Open `chrome://extensions` in Chrome.
-2. Enable **Developer mode**.
-3. Select **Load unpacked** and choose this directory.
-4. Pin Dev Sideboard to the toolbar and click its icon to open the side panel.
-5. Reload the page to measure it from the beginning.
+1.  Open `chrome://extensions` and enable **Developer mode**.
+2.  Select **Load unpacked** and choose this directory.
+3.  Click the extension icon to open the side panel.
+4.  Reload already open pages after installing or updating the extension.
 
-HTTP and HTTPS traffic is observed automatically using the requested website permissions.
-No debugger connection or start button is needed. Reload already open pages after installing or updating the extension to refresh its content scripts.
+## Usage
 
-## Measurement scope
+Network monitoring starts automatically. Measurements reset on reload or navigation to a new document; switching tabs preserves them. Durations include download time. Response sizes are estimates based on available Content-Length headers, not total network usage. Chrome’s limitations mean some requests are not counted.
 
-A new main-document request starts a fresh measurement, including on reload. Tab switching preserves each tab's measurements. SPA history changes keep the same totals. Restored documents without a newly observed main request start a partial measurement; requests from before observation are not reconstructed.
+The **Page** tab updates when metadata changes. Open Graph takes priority; Twitter Card is shown when Open Graph tags are absent.
 
-Each request ID counts once, including its redirects and authentication retries. Average and longest durations run from the first observed request start to successful completion (including HTTP error responses), with failed requests excluded. They include download time, redirects, and authentication waits; they are not server-only response time or total page load time. HTTP errors count final 4xx/5xx responses; request failures include cancellations and cache-related errors.
+**Storage** and **Cookies** refresh automatically, pausing while you edit. Both JSON and plain-text values can be edited. **Save** and **Delete** change the selected website storage item or browser cookie; changes made by the website since inspection are checked before applying an edit.
 
-Known response size sums available Content-Length values from final completed responses, excluding cache hits, 304 responses, and bodies that were not downloaded. Headers, intermediate redirect responses, failed downloads, upload traffic, and WebSocket messages are excluded. Missing lengths are counted separately. This is not total network usage.
+## Security and privacy
 
-Only requests Chrome exposes and associates with a tab can be counted. Some cache, worker, internal, and preflight activity may be absent. These figures are not guaranteed to match DevTools. If more than 1,000 requests are simultaneously pending per tab, the oldest detailed measurements are omitted and the panel reports the omission count.
+Protecting website data is a design priority. Inspecting Local Storage, Session Storage, or Cookies does not send their contents to the developer or external servers. Values are passed through internal extension messages and displayed as text, without executing embedded HTML or JavaScript.
 
-Measurements use in-memory Chrome session storage. They survive background worker suspension and closing the panel, but are cleared when the tab closes, the browser restarts, or the extension reloads.
+Features are omitted when a safe implementation cannot be established within the extension’s design. Fetch/XHR response-body capture is intentionally excluded to avoid exposing captured responses to unrelated page scripts.
 
-## Page metadata
+Image previews make requests to the public-network HTTPS URLs specified by the page. Image hosts receive the requested URL and your IP address, but preview requests omit browser credentials, including cookies. Local-network destinations are blocked, and image count, response size, and request duration are limited.
 
-The Page tab shows Canonical URLs, descriptions, Open Graph, and Twitter Card tags from the active page’s DOM. Open Graph takes priority; Twitter Card is shown only when Open Graph tags are absent. Duplicate tags are preserved and relative canonical links are resolved against the document base URL. Metadata is read when the Page tab opens and updates when relevant tags change. Open Graph and Twitter images appear as previews below their URLs; previews are fetched without browser credentials and displayed using Blob URLs. Only HTTPS PNG, JPEG, GIF, WebP, and AVIF responses are accepted; redirects and referrer policy use browser defaults, retaining credential omission, the public address-space restriction, and the HTTPS-only extension CSP. Each view allows up to 6 previews, with 2 concurrent requests, an 8-second timeout, and a 5 MiB streamed byte limit per image. HTTP images and unsupported images remain available as URL text. Switching views cancels pending requests and releases preview Blob URLs. Preview requests use `targetAddressSpace: "public"` so Chrome rejects local-network and loopback destinations.
+See the [privacy policy](PRIVACY.md) for data handling and retention details.
 
-## Storage and cookie inspection
+## Development and publishing
 
-Below the compact network summary, separate Storage and Cookies tabs provide inspection and editing. Local Storage and Session Storage are read from the top frame; cookies are read through Chrome’s cookie API. Values refresh about once per second while the inspector is visible and are not persisted by the extension.
+There are no runtime dependencies.
 
-Raw displays the original stored value. JSON values can be searched and expanded as trees, with a display limit of 5,000 nodes and 100 nesting levels. Storage and cookie values may contain private application data.
+- `make test` runs the tests.
+- `make format` formats the source and documentation.
+- `make package` runs checks and creates the upload ZIP in `dist/`.
 
-Auto-refresh pauses while editing a value. It reads website storage locally and does not reload the page or send network requests.
-
-Storage values can be edited using Edit and saved explicitly. Non-JSON values, including empty strings and whitespace, are saved exactly as entered. Save updates only the selected Local Storage or Session Storage key on the inspected document; invalid JSON and values changed since inspection are rejected. Edits are saved to the website’s storage, not to extension history. The page may need to be reloaded to use the new value.
-
-Cookies matching the active page URL are listed in Cookies, including HttpOnly cookies. Edit saves the raw value without decoding it, preserving domain, path, expiry, Secure, HttpOnly, SameSite, cookie store, and partition attributes. Cookies refresh while the Cookies tab is visible and are not retained in extension history. Partitioned cookies are included using `cookies.getPartitionKey`.
-
-Delete removes only the selected Local Storage / Session Storage key or Cookie. Changes since inspection are rejected. Cookie deletion expires the exact domain, path, store, and partition, preserving other same-name cookies. Deletions apply to website/browser data and are not saved in extension history.
-
-## Development
-
-There are no runtime dependencies. Run the tests with:
-
-```sh
-make test
-```
-
-## Publishing
-
-Run `make package` to check the source and build the upload ZIP in `dist/`.
-See [store listing](store/listing.md), [submission notes](store/submission.md),
-and the [privacy policy](PRIVACY.md) for the publication materials.
+See the [store listing](store/listing.md) and [submission notes](store/submission.md) for publication materials.

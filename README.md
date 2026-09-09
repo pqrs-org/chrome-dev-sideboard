@@ -8,7 +8,7 @@ A Chrome extension that displays the page title, network measurements, JSON resp
 - Read the full page title, with automatic line wrapping
 - Follow the active tab in each window
 - Inspect JSON fetch/XHR responses and local/session storage
-- Filter requests by URL, payload, method, or errors; search, expand, collapse, and copy JSON trees
+- Filter requests by URL, payload, method, or errors; search, expand, collapse, and switch between JSON trees and raw text
 - Track request counts, requests in progress, HTTP errors, and request failures
 - Click HTTP error or request failure counts to inspect URLs and error codes (latest 100 failures per tab)
 - See average and longest completed request durations
@@ -45,13 +45,13 @@ When upgrading from the title chip version, reload pages that still show the old
 
 Below the compact network summary, the Fetch / Storage view integrates the tools from `tekezo/chrome-devtools`. JSON-like fetch/XHR responses are captured automatically, even when the panel is closed. Worker requests and requests made before the capture script starts are not included. Fetch capture stops reading at 1 MiB; saved payload text is limited to 100,000 characters per record. Each tab retains at most 80 records and 512,000 serialized characters in session memory, with older records evicted first. Chrome's shared session quota may further limit capture. Truncated payloads are shown as text. JSON trees display at most 5,000 nodes and 100 nesting levels.
 
-History resets on a new document and is removed on tab close or browser restart. Local Storage and Session Storage are read from the top frame when opening the Storage view or using Refresh, and automatically about once per second while the Storage view is visible; these values are not persisted by the extension. Copy writes the selected payload or storage value to the clipboard. Captured data may contain private application data. Page scripts can interfere with or imitate capture events, so this is a development aid rather than a tamper-proof network trace.
+History resets on a new document and is removed on tab close or browser restart. Local Storage and Session Storage are read from the top frame when opening the Storage view, and automatically about once per second while the Storage view is visible; these values are not persisted by the extension. Raw displays the captured payload or stored value without formatting or decoding. Captured data may contain private application data. Page scripts can interfere with or imitate capture events, so this is a development aid rather than a tamper-proof network trace.
 
 Storage auto-refresh pauses while editing JSON. It reads website storage locally and does not reload the page or send network requests.
 
-Storage JSON values can be edited using Edit JSON and saved explicitly. Save updates only the selected Local Storage or Session Storage key on the inspected document; invalid JSON and values changed since inspection are rejected. Edits are saved to the website’s storage, not to extension history. The page may need to be reloaded to use the new value.
+Storage values can be edited using Edit and saved explicitly. Non-JSON values, including empty strings and whitespace, are saved exactly as entered. Save updates only the selected Local Storage or Session Storage key on the inspected document; invalid JSON and values changed since inspection are rejected. Edits are saved to the website’s storage, not to extension history. The page may need to be reloaded to use the new value.
 
-Cookies matching the active page URL are listed in Cookies, including HttpOnly cookies. Edit Cookie saves the raw value without decoding it, preserving domain, path, expiry, Secure, HttpOnly, SameSite, cookie store, and partition attributes. Cookies refresh while the Cookies tab is visible and are not retained in extension history. Partitioned cookies are included when Chrome provides `cookies.getPartitionKey` (Chrome 132+); older supported versions show unpartitioned cookies.
+Cookies matching the active page URL are listed in Cookies, including HttpOnly cookies. Edit saves the raw value without decoding it, preserving domain, path, expiry, Secure, HttpOnly, SameSite, cookie store, and partition attributes. Cookies refresh while the Cookies tab is visible and are not retained in extension history. Partitioned cookies are included when Chrome provides `cookies.getPartitionKey` (Chrome 132+); older supported versions show unpartitioned cookies.
 
 Delete removes only the selected Local Storage / Session Storage key or Cookie. Changes since inspection are rejected. Cookie deletion expires the exact domain, path, store, and partition, preserving other same-name cookies. Deletions apply to website/browser data and are not saved in extension history.
 

@@ -7,6 +7,7 @@
   --text: #18202b;
   --muted: #667085;
   --accent: #1463ff;
+  --on-accent: #ffffff;
   --error: #b42318;
   --ok: #067647;
   --code-key: #7f56d9;
@@ -23,6 +24,7 @@
     --text: #eef2f6;
     --muted: #98a2b3;
     --accent: #78a6ff;
+    --on-accent: #111418;
     --error: #f97066;
     --ok: #32d583;
     --code-key: #b692f6;
@@ -105,7 +107,6 @@ input {
   margin-bottom: -1px;
   padding: 0.625rem 0.375rem;
   border: 1px solid transparent;
-  border-top: 0;
   border-bottom-color: var(--border);
   border-radius: 0.5rem 0.5rem 0 0;
   background: transparent;
@@ -132,7 +133,7 @@ input {
 
 .toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.5rem;
   padding: 0.625rem;
   border-bottom: 1px solid var(--border);
@@ -312,7 +313,7 @@ button:disabled:hover {
 }
 
 .payload-filter {
-  flex: 1 1 11.875rem;
+  width: 100%;
 }
 
 .viewer {
@@ -331,7 +332,7 @@ button:disabled:hover {
 }
 
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 .tree-row {
@@ -390,6 +391,7 @@ button:disabled:hover {
 }
 
 #storageEditor {
+  margin-block: 0.25rem auto;
   width: calc(100% - 2rem);
   max-width: 40rem;
   max-height: calc(100% - 2rem);
@@ -427,4 +429,27 @@ button:disabled:hover {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+#rawButton.active {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.raw-value {
+  margin: 0;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+#saveStorageEdit {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+
+#deleteStorageButton {
+  color: var(--error);
+  border-color: var(--error);
 }

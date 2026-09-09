@@ -29,6 +29,7 @@ const state = {
   selectedId: null,
   filter: '',
   payloadFilter: '',
+  rawView: false,
   methodFilter: 'get',
   errorsOnly: false,
   storage: {
@@ -60,15 +61,13 @@ const elements = {
   methodFilterGroup: document.getElementById('methodFilterGroup'),
   errorsOnlyLabel: document.getElementById('errorsOnlyLabel'),
   errorsOnlyInput: document.getElementById('errorsOnlyInput'),
-  refreshStorageButton: document.getElementById('refreshStorageButton'),
   countLabel: document.getElementById('countLabel'),
   requestList: document.getElementById('requestList'),
   detailTitle: document.getElementById('detailTitle'),
   detailMeta: document.getElementById('detailMeta'),
   payloadFilterInput: document.getElementById('payloadFilterInput'),
-  expandTreeButton: document.getElementById('expandTreeButton'),
-  collapseTreeButton: document.getElementById('collapseTreeButton'),
-  copyButton: document.getElementById('copyButton'),
+  toggleTreeButton: document.getElementById('toggleTreeButton'),
+  rawButton: document.getElementById('rawButton'),
   treeView: document.getElementById('treeView'),
 }
 
@@ -175,14 +174,15 @@ elements.editStorageButton.addEventListener('click', () => {
   const entry = getSelectedStorageEntry()
   if (!entry || !state.storage.documentId) return
   let parsed
+  let json = false
   if (entry.area !== 'cookie') {
     try {
       parsed = JSON.parse(entry.value)
-    } catch (_) {
-      return
-    }
+      json = true
+    } catch (_) {}
   }
   storageEdit = {
+    json,
     tabId: state.tabId,
     documentId: state.storage.documentId,
     area: entry.area,
@@ -194,8 +194,9 @@ elements.editStorageButton.addEventListener('click', () => {
     entry.area === 'cookie'
       ? `Edit Cookie: ${entry.name}`
       : `Edit ${entry.area === 'local' ? 'Local' : 'Session'} Storage: ${entry.key}`
-  elements.storageJsonInput.value =
-    entry.area === 'cookie' ? entry.value : JSON.stringify(parsed, null, 2)
+  elements.storageJsonInput.value = json
+    ? JSON.stringify(parsed, null, 2)
+    : entry.value
   elements.storageEditStatus.textContent = ''
   elements.saveStorageEdit.disabled = false
   elements.cancelStorageEdit.disabled = false
@@ -215,7 +216,7 @@ elements.saveStorageEdit.addEventListener('click', () => {
   if (!storageEdit) return
   const value = elements.storageJsonInput.value
   try {
-    if (storageEdit.area !== 'cookie') JSON.parse(value)
+    if (storageEdit.json) JSON.parse(value)
   } catch (error) {
     elements.storageEditStatus.textContent = `Invalid JSON: ${error.message}`
     return
@@ -280,30 +281,16 @@ elements.methodFilterGroup.addEventListener('click', (event) => {
   renderMethodFilterButtons()
 })
 
-elements.refreshStorageButton.addEventListener('click', () => {
-  requestStorageSnapshot()
+elements.toggleTreeButton.addEventListener('click', () => {
+  const nodes = [...elements.treeView.querySelectorAll('details')]
+  setTreeOpen(nodes.some((node) => !node.open))
+  renderTreeActionButtons()
 })
+elements.treeView.addEventListener('toggle', renderTreeActionButtons, true)
 
-elements.expandTreeButton.addEventListener('click', () => {
-  setTreeOpen(true)
-})
-
-elements.collapseTreeButton.addEventListener('click', () => {
-  setTreeOpen(false)
-})
-
-elements.copyButton.addEventListener('click', async () => {
-  const text = getCopyText()
-  if (!text) {
-    return
-  }
-
-  try {
-    await navigator.clipboard.writeText(text)
-    flashCopyButton()
-  } catch (error) {
-    elements.detailMeta.textContent = error.message
-  }
+elements.rawButton.addEventListener('click', () => {
+  state.rawView = !state.rawView
+  renderDetail()
 })
 
 let inspectorWindowId
@@ -469,20 +456,12 @@ function renderModeChrome() {
     !state.storage.documentId ||
     Boolean(state.storage.error) ||
     Boolean(storageEdit)
-  let validJson = false
-  try {
-    if (entry) {
-      JSON.parse(entry.value)
-      validJson = true
-    }
-  } catch (_) {}
   elements.editStorageButton.disabled =
     Boolean(storageEdit) ||
-    (!validJson && entry?.area !== 'cookie') ||
+    !entry ||
     !state.storage.documentId ||
     Boolean(state.storage.error)
-  elements.editStorageButton.textContent =
-    entry?.area === 'cookie' ? 'Edit Cookie' : 'Edit JSON'
+  elements.editStorageButton.textContent = 'Edit'
   elements.fetchModeButton.classList.toggle('active', state.mode === 'fetch')
   elements.storageModeButton.classList.toggle(
     'active',
@@ -492,23 +471,23 @@ function renderModeChrome() {
     'active',
     state.mode === 'cookies',
   )
-  elements.refreshStorageButton.classList.toggle(
-    'hidden',
-    state.mode === 'fetch',
-  )
   elements.methodFilterGroup.classList.toggle('hidden', state.mode !== 'fetch')
   elements.errorsOnlyLabel.classList.toggle('hidden', state.mode !== 'fetch')
   elements.filterInput.placeholder =
     state.mode === 'fetch' ? 'Filter URL or JSON' : 'Filter key or value'
-  elements.copyButton.disabled = !getCopyText()
+  elements.rawButton.disabled = !(state.mode === 'fetch'
+    ? getSelectedRecord()
+    : getSelectedStorageEntry())
   renderTreeActionButtons()
   renderMethodFilterButtons()
 }
 
 function renderTreeActionButtons() {
-  const disabled = !elements.treeView.querySelector('details')
-  elements.expandTreeButton.disabled = disabled
-  elements.collapseTreeButton.disabled = disabled
+  const nodes = [...elements.treeView.querySelectorAll('details')]
+  elements.toggleTreeButton.disabled = nodes.length === 0
+  elements.toggleTreeButton.textContent = nodes.some((node) => !node.open)
+    ? 'Expand'
+    : 'Collapse'
 }
 
 function renderEmptyDetail(title, message, emptyText) {
@@ -516,7 +495,7 @@ function renderEmptyDetail(title, message, emptyText) {
   elements.detailTitle.title = ''
   elements.detailMeta.textContent = message
   elements.treeView.replaceChildren(emptyState(emptyText))
-  elements.copyButton.disabled = true
+  elements.rawButton.disabled = true
   renderTreeActionButtons()
 }
 
@@ -625,6 +604,9 @@ function renderStorageItem(entry) {
 }
 
 function renderDetail() {
+  elements.rawButton.setAttribute('aria-pressed', String(state.rawView))
+  elements.rawButton.classList.toggle('active', state.rawView)
+  elements.payloadFilterInput.disabled = state.rawView
   if (state.mode !== 'fetch') {
     renderStorageDetail()
     return
@@ -655,13 +637,17 @@ function renderDetail() {
     new Date(record.timestamp).toLocaleTimeString(),
   ].join(' · ')
 
-  if (record.parseError || record.truncated) {
+  if (state.rawView) {
+    renderRaw(record.raw ?? '')
+    if (record.truncated)
+      elements.detailMeta.textContent += ' · Captured payload truncated'
+  } else if (record.parseError || record.truncated) {
     elements.treeView.replaceChildren(
       emptyState(record.parseError || 'Payload truncated'),
       renderPrimitiveStorage(record.raw || '', 'response'),
     )
   } else renderFilteredPayload(record.json, 'response')
-  elements.copyButton.disabled = false
+  elements.rawButton.disabled = false
   renderTreeActionButtons()
 }
 
@@ -681,8 +667,7 @@ function renderStorageDetail() {
       state.mode === 'cookies'
         ? 'No cookie selected'
         : 'No storage item selected',
-      state.storage.origin ||
-        'Refresh storage after selecting a normal page tab.',
+      state.storage.origin || 'Select a normal page tab to view storage.',
       state.mode === 'cookies'
         ? state.storage.cookieError || 'No cookies for this page.'
         : 'No Local Storage or Session Storage items.',
@@ -708,7 +693,9 @@ function renderStorageDetail() {
   if (entry.area === 'cookie') {
     elements.detailMeta.textContent += ` · ${entry.domain}${entry.path} · ${entry.hostOnly ? 'Host-only' : 'Domain'} · ${entry.secure ? 'Secure' : 'Not Secure'} · ${entry.httpOnly ? 'HttpOnly' : 'Not HttpOnly'} · SameSite: ${entry.sameSite} · ${entry.session ? 'Session' : new Date(entry.expirationDate * 1000).toLocaleString()}${entry.partitionKey ? ` · Partition: ${entry.partitionKey.topLevelSite}` : ''}`
   }
-  if (parsed.ok) {
+  if (state.rawView) {
+    renderRaw(entry.value)
+  } else if (parsed.ok) {
     renderFilteredPayload(
       parsed.value,
       entry.area === 'cookie' ? entry.name : entry.key,
@@ -721,7 +708,7 @@ function renderStorageDetail() {
       ),
     )
   }
-  elements.copyButton.disabled = false
+  elements.rawButton.disabled = false
   renderTreeActionButtons()
 }
 
@@ -755,7 +742,7 @@ function renderJsonTree(
 ) {
   if (--budget.remaining < 0 || depth > 100)
     return emptyState(
-      'Tree display limit reached. Use Copy for the captured payload.',
+      'Tree display limit reached. Use Raw for the captured payload.',
     )
   const keyMatches = matchKey && normalizeSearchText(key).includes(filter)
 
@@ -867,32 +854,11 @@ window.setInterval(() => {
     requestStorageSnapshot()
 }, 1000)
 
-function getCopyText() {
-  if (state.mode !== 'fetch') {
-    const entry = getSelectedStorageEntry()
-    if (!entry) {
-      return ''
-    }
-
-    if (entry.area === 'cookie') return entry.value
-    const parsed = parseMaybeJson(entry.value)
-    return parsed.ok ? JSON.stringify(parsed.value, null, 2) : entry.value
-  }
-
-  const record = getSelectedRecord()
-  if (!record) {
-    return ''
-  }
-
-  return record.raw || JSON.stringify(record.json, null, 2)
-}
-
-function flashCopyButton() {
-  const originalText = elements.copyButton.textContent
-  elements.copyButton.textContent = 'Copied'
-  window.setTimeout(() => {
-    elements.copyButton.textContent = originalText
-  }, 900)
+function renderRaw(text) {
+  const pre = document.createElement('pre')
+  pre.className = 'raw-value'
+  pre.textContent = text
+  elements.treeView.replaceChildren(pre)
 }
 
 function normalizeStorageSnapshot(snapshot) {

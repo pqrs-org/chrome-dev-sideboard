@@ -55,7 +55,6 @@ test('manifest uses passive network permissions and opens a side panel', () => {
     'webRequest',
     'webNavigation',
     'storage',
-    'clipboardWrite',
     'cookies',
   ])
   assert.equal(manifest.action.default_popup, undefined)

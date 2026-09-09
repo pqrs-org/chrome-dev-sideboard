@@ -12,6 +12,9 @@ class Element {
     this.listeners = {}
     this.classList = { toggle() {} }
   }
+  setAttribute(name, value) {
+    this[name] = value
+  }
   showModal() {
     this.open = true
   }
@@ -35,12 +38,11 @@ class Element {
     return []
   }
 }
-test('inspector loads scoped snapshots, filters JSON, copies, and reads storage on demand', async () => {
+test('inspector loads scoped snapshots, filters JSON, shows raw values, and reads storage on demand', async () => {
   const elements = new Map()
   const sent = []
   let receive
   let activated
-  let copied
   const port = {
     postMessage: (m) => sent.push(m),
     onMessage: {
@@ -66,13 +68,6 @@ test('inspector loads scoped snapshots, filters JSON, copies, and reads storage 
         },
         createElement: () => new Element(),
         createTextNode: (text) => ({ textContent: text }),
-      },
-      navigator: {
-        clipboard: {
-          writeText: async (text) => {
-            copied = text
-          },
-        },
       },
       window: {
         setInterval: (fn) => {
@@ -127,8 +122,35 @@ test('inspector loads scoped snapshots, filters JSON, copies, and reads storage 
     ],
   })
   assert.equal(elements.get('requestList').children.length, 1)
-  await elements.get('copyButton').listeners.click()
-  assert.equal(copied, '{"hello":"world"}')
+  const nodes = [{ open: true }, { open: true }]
+  const treeView = elements.get('treeView')
+  treeView.querySelectorAll = () => nodes
+  treeView.listeners.toggle()
+  assert.equal(elements.get('toggleTreeButton').textContent, 'Collapse')
+  elements.get('toggleTreeButton').listeners.click()
+  assert.equal(
+    nodes.every((node) => !node.open),
+    true,
+  )
+  assert.equal(elements.get('toggleTreeButton').textContent, 'Expand')
+  elements.get('toggleTreeButton').listeners.click()
+  assert.equal(
+    nodes.every((node) => node.open),
+    true,
+  )
+  nodes[1].open = false
+  treeView.listeners.toggle()
+  assert.equal(elements.get('toggleTreeButton').textContent, 'Expand')
+  treeView.querySelectorAll = () => []
+  treeView.listeners.toggle()
+  assert.equal(elements.get('toggleTreeButton').disabled, true)
+
+  if (elements.get('rawButton')['aria-pressed'] !== 'true')
+    elements.get('rawButton').listeners.click()
+  assert.equal(
+    elements.get('treeView').children[0].textContent,
+    '{"hello":"world"}',
+  )
   elements.get('filterInput').value = 'missing'
   elements.get('filterInput').listeners.input()
   assert.equal(elements.get('requestList').children.length, 0)
@@ -137,10 +159,32 @@ test('inspector loads scoped snapshots, filters JSON, copies, and reads storage 
   receive({
     type: 'storageSnapshot',
     tabId: 1,
-    snapshot: { local: [{ key: 'x', value: 'test' }], session: [] },
+    snapshot: {
+      documentId: 'doc-1',
+      local: [{ key: 'x', value: 'test' }],
+      session: [],
+    },
   })
-  await elements.get('copyButton').listeners.click()
-  assert.equal(copied, 'test')
+  if (elements.get('rawButton')['aria-pressed'] !== 'true')
+    elements.get('rawButton').listeners.click()
+  assert.equal(elements.get('treeView').children[0].textContent, 'test')
+  assert.equal(elements.get('editStorageButton').disabled, false)
+  assert.equal(elements.get('editStorageButton').textContent, 'Edit')
+  elements.get('editStorageButton').listeners.click()
+  elements.get('storageJsonInput').value = ' text\nvalue '
+  elements.get('saveStorageEdit').listeners.click()
+  assert.equal(sent.at(-1).value, ' text\nvalue ')
+  receive({
+    type: 'storageSaved',
+    tabId: 1,
+    requestId: sent.at(-1).requestId,
+    ok: true,
+    snapshot: {
+      documentId: 'doc-1',
+      local: [{ key: 'x', value: ' text\nvalue ' }],
+      session: [],
+    },
+  })
   const beforePoll = sent.length
   poll()
   assert.equal(sent.length, beforePoll + 1)
@@ -193,8 +237,12 @@ test('inspector loads scoped snapshots, filters JSON, copies, and reads storage 
     },
   })
   assert.equal(elements.get('storageEditor').open, false)
-  await elements.get('copyButton').listeners.click()
-  assert.equal(JSON.parse(copied).enabled, true)
+  if (elements.get('rawButton')['aria-pressed'] !== 'true')
+    elements.get('rawButton').listeners.click()
+  assert.equal(
+    JSON.parse(elements.get('treeView').children[0].textContent).enabled,
+    true,
+  )
   const cookie = {
     name: 'sid',
     value: 'raw-token',
@@ -219,7 +267,7 @@ test('inspector loads scoped snapshots, filters JSON, copies, and reads storage 
   })
   assert.equal(elements.get('editStorageButton').disabled, true)
   elements.get('cookiesModeButton').listeners.click()
-  assert.equal(elements.get('editStorageButton').textContent, 'Edit Cookie')
+  assert.equal(elements.get('editStorageButton').textContent, 'Edit')
   assert.equal(elements.get('editStorageButton').disabled, false)
   assert.match(elements.get('detailMeta').textContent, /HttpOnly/)
   elements.get('editStorageButton').listeners.click()

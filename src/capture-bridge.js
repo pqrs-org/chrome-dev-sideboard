@@ -46,7 +46,14 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         typeof message.expectedValue !== 'string'
       )
         throw new Error('Invalid storage edit.')
-      if (!deleting) JSON.parse(message.value)
+      if (!deleting) {
+        let json = false
+        try {
+          JSON.parse(message.expectedValue)
+          json = true
+        } catch (_) {}
+        if (json) JSON.parse(message.value)
+      }
       const storage =
         window[message.area === 'local' ? 'localStorage' : 'sessionStorage']
       if (storage.getItem(message.key) !== message.expectedValue)

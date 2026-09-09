@@ -209,6 +209,21 @@ test('storage edits update only the selected key and reject invalid JSON or stal
     true,
   )
   assert.equal(session.get('settings'), '{"count":2}')
+  const textEdit = {
+    type: 'json-fetch-visualizer:set-storage',
+    area: 'local',
+    key: 'other',
+    expectedValue: 'keep',
+    value: '  plain text\nnext line  ',
+  }
+  assert.equal(send(textEdit).ok, true)
+  assert.equal(local.get('other'), textEdit.value)
+  assert.equal(
+    send({ ...textEdit, expectedValue: textEdit.value, value: '' }).ok,
+    true,
+  )
+  assert.equal(local.get('other'), '')
+  local.set('other', 'keep')
   const deletion = {
     type: 'json-fetch-visualizer:delete-storage',
     area: 'local',

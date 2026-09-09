@@ -8,7 +8,7 @@ Dev Sideboard
 
 ## Summary
 
-Page title, network measurements, JSON fetch/XHR inspection, and local/session storage in the side panel.
+Inspect requests, storage, and cookies in the side panel.
 
 ## Detailed description
 
@@ -24,7 +24,7 @@ Measurement starts automatically for HTTP and HTTPS traffic. Reload an existing 
 
 Durations include downloads, redirects, and authentication waits. Sizes use available Content-Length response headers and are not total network usage. Some browser, cache, and worker traffic cannot be observed.
 
-The extension observes network metadata and wraps page fetch/XHR APIs to capture JSON-like responses, without connecting a debugger. The Fetch / Storage view provides request and JSON filtering, tree expansion, copying, and on-demand Local Storage and Session Storage inspection and JSON editing, plus Cookie viewing and value editing. It processes titles, URLs, network metadata, response payloads, and requested storage values. Measurements and bounded JSON history stay in Chrome session memory and clear when the tab closes or Chrome restarts. They are not sent to the developer. There are no analytics or advertising services.
+The extension observes network metadata and wraps page fetch/XHR APIs to capture JSON-like responses, without connecting a debugger. The Fetch / Storage view provides request and JSON filtering, tree expansion, raw text viewing, and on-demand Local Storage and Session Storage inspection and JSON editing, plus Cookie viewing and value editing. It processes titles, URLs, network metadata, response payloads, and requested storage values. Measurements and bounded JSON history stay in Chrome session memory and clear when the tab closes or Chrome restarts. They are not sent to the developer. There are no analytics or advertising services.
 
 Requires Chrome 116 or later.
 
@@ -34,8 +34,8 @@ Use the closest available productivity/tools category. Default listing language:
 
 ## URLs
 
-- Homepage: https://github.com/pqrs-org/chrome-page-title-bar
-- Support: https://github.com/pqrs-org/chrome-page-title-bar/issues
-- Privacy policy: https://github.com/pqrs-org/chrome-page-title-bar/blob/main/PRIVACY.md
+- Homepage: https://github.com/pqrs-org/chrome-dev-sideboard
+- Support: https://github.com/pqrs-org/chrome-dev-sideboard/issues
+- Privacy policy: https://github.com/pqrs-org/chrome-dev-sideboard/blob/main/PRIVACY.md
 
 The privacy URL is a proposed location. Publish PRIVACY.md and verify that it is publicly accessible without signing in before entering it in the dashboard.

@@ -27,9 +27,6 @@
               type="search"
               placeholder="Filter URL or JSON"
             />
-            <button id="refreshStorageButton" class="hidden" type="button">
-              Refresh
-            </button>
           </div>
           <div class="summary">
             <div class="summary-primary">
@@ -75,27 +72,31 @@
                 Reload the page to capture startup requests.
               </div>
             </div>
+            <input
+              id="payloadFilterInput"
+              class="payload-filter"
+              type="search"
+              placeholder="Filter JSON keys or values"
+              aria-label="Filter JSON payload"
+            />
             <div class="tabs" role="group">
-              <input
-                id="payloadFilterInput"
-                class="payload-filter"
-                type="search"
-                placeholder="Filter JSON keys or values"
-                aria-label="Filter JSON payload"
-              />
-              <button id="expandTreeButton" class="tab" type="button">
-                Expand
-              </button>
-              <button id="collapseTreeButton" class="tab" type="button">
+              <button id="toggleTreeButton" class="tab" type="button">
                 Collapse
               </button>
               <button id="editStorageButton" class="tab hidden" type="button">
-                Edit JSON
+                Edit
               </button>
               <button id="deleteStorageButton" class="tab hidden" type="button">
                 Delete
               </button>
-              <button id="copyButton" class="tab" type="button">Copy</button>
+              <button
+                id="rawButton"
+                class="tab"
+                type="button"
+                aria-pressed="false"
+              >
+                Raw
+              </button>
             </div>
           </header>
           <div id="treeView" class="viewer tree-view"></div>
@@ -106,7 +107,7 @@
       <h2 id="storageEditorTitle">Edit JSON</h2>
       <textarea
         id="storageJsonInput"
-        aria-label="JSON value"
+        aria-label="Value"
         spellcheck="false"
       ></textarea>
       <p id="storageEditStatus" role="status"></p>

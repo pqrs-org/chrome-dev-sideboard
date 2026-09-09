@@ -28,10 +28,6 @@ Identifies main-document commits and restored pages so measurements reset when t
 
 Uses only storage.session to retain per-tab measurements and temporary pending-request metadata across service worker restarts. Current document URLs and identifiers support navigation matching. Up to 100 recent failures per tab retain URLs, methods, timestamps, and error codes for the details dialog. Data is cleared when tabs close or Chrome restarts; no measurements are persisted to disk or synchronized. JSON capture stores at most 80 records and 512,000 serialized characters per tab, capped at 100,000 payload characters per record.
 
-### clipboardWrite
-
-Copies the selected JSON response or website storage value only when the user clicks Copy.
-
 ### cookies
 
 Reads cookies matching the inspected top-level page URL, including HttpOnly and supported partitioned cookies, and updates a selected value on explicit Save or deletes the selected cookie on Delete. Snapshots are kept only in panel memory. Cookie values may contain authentication information and should be included in applicable data disclosures.
@@ -63,7 +59,7 @@ No login or paid account is required for the basic panel. Use Chrome 116 or late
 6. Reload or navigate to another document and verify reset. SPA history changes retain totals.
 7. Close and reopen the panel. Values remain in this session. Restart Chrome and reload a page to begin a new measurement.
 
-8. Open Fetch / Storage, reload a page that requests JSON through fetch and XHR, and verify filtering, tree expansion/collapse, and Copy. Switch to Storage and verify Local Storage and Session Storage values and Refresh. Select a JSON value, use Edit JSON, and verify that Save updates only that key.
+8. Open Fetch / Storage, reload a page that requests JSON through fetch and XHR, and verify filtering, tree expansion/collapse, and Raw. Switch to Storage and verify Local Storage and Session Storage values and automatic refresh. Select a JSON value, use Edit, and verify that Save updates only that key.
 
 ## Release checklist
 

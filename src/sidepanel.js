@@ -33,7 +33,7 @@ function renderFailures() {
     .slice()
     .reverse();
   failureTitle.textContent =
-    failureKind === "httpErrors" ? "HTTP errors" : "Connection failures";
+    failureKind === "httpErrors" ? "HTTP errors" : "Request failures";
   failureSummary.textContent = `${items.length} of ${displayedState?.[failureKind] || 0} shown. Latest 100 failures retained across both categories.`;
   failureList.textContent = items.length
     ? items

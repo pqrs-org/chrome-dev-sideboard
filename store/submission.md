@@ -18,7 +18,7 @@ Displays the page title and network summary in a panel opened from the extension
 
 ### webRequest and HTTP/HTTPS host permissions
 
-Passively observes requests for the arbitrary websites the user visits. Request lifecycle events provide counts, durations, HTTP errors, and connection failures. Response headers provide Content-Length estimates. Host access is needed for both requested URLs and initiators, including cross-origin resources. No blocking options are used; network measurement does not modify requests. HTTP/HTTPS content scripts additionally wrap fetch/XHR in the MAIN world for JSON response capture and bridge records to the extension.
+Passively observes requests for the arbitrary websites the user visits. Request lifecycle events provide counts, durations, HTTP errors, and request failures. Response headers provide Content-Length estimates. Host access is needed for both requested URLs and initiators, including cross-origin resources. No blocking options are used; network measurement does not modify requests. HTTP/HTTPS content scripts additionally wrap fetch/XHR in the MAIN world for JSON response capture and bridge records to the extension.
 
 ### webNavigation
 
@@ -54,7 +54,7 @@ No login or paid account is required for the basic panel. Use Chrome 116 or late
 1. Install the extension and open https://example.com/.
 2. Click the extension icon and reload the page. Verify the page title, request counts, and duration statistics.
 3. Switch between tabs and windows. Each panel follows its own window and each tab retains separate totals.
-4. On a test site, load a missing resource and a resource from an unreachable endpoint. Check HTTP errors and connection failures respectively. Click their counts to inspect URLs and error codes.
+4. On a test site, load a missing resource and a resource from an unreachable endpoint. Check HTTP errors and request failures respectively. Click their counts to inspect URLs and error codes.
 5. Observe a response with Content-Length, a response without it, and cached responses. Verify that known sizes and unknown/cache counts remain separate.
 6. Reload or navigate to another document and verify reset. SPA history changes retain totals.
 7. Close and reopen the panel. Values remain in this session. Restart Chrome and reload a page to begin a new measurement.

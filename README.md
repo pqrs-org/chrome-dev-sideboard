@@ -9,8 +9,8 @@ A Chrome extension that displays the page title, network measurements, JSON resp
 - Follow the active tab in each window
 - Inspect JSON fetch/XHR responses and local/session storage
 - Filter requests by URL, payload, method, or errors; search, expand, collapse, and copy JSON trees
-- Track request counts, requests in progress, HTTP errors, and connection failures
-- Click HTTP error or connection failure counts to inspect URLs and error codes (latest 100 failures per tab)
+- Track request counts, requests in progress, HTTP errors, and request failures
+- Click HTTP error or request failure counts to inspect URLs and error codes (latest 100 failures per tab)
 - See average and longest completed request durations
 - See known final response body sizes, unknown-size responses, and cached responses
 
@@ -31,7 +31,7 @@ No debugger connection or start button is needed. JSON capture wraps page fetch/
 
 A new main-document request starts a fresh measurement, including on reload. Tab switching preserves each tab's measurements. SPA history changes keep the same totals. Restored documents without a newly observed main request start a partial measurement; requests from before observation are not reconstructed.
 
-Each request ID counts once, including its redirects and authentication retries. Average and longest durations run from the first observed request start to successful completion (including HTTP error responses), with failed connections excluded. They include download time, redirects, and authentication waits; they are not server-only response time or total page load time. HTTP errors count final 4xx/5xx responses; connection failures include cancellations.
+Each request ID counts once, including its redirects and authentication retries. Average and longest durations run from the first observed request start to successful completion (including HTTP error responses), with failed requests excluded. They include download time, redirects, and authentication waits; they are not server-only response time or total page load time. HTTP errors count final 4xx/5xx responses; request failures include cancellations and cache-related errors.
 
 Known response size sums available Content-Length values from final completed responses, excluding cache hits, 304 responses, and bodies that were not downloaded. Headers, intermediate redirect responses, failed downloads, upload traffic, and WebSocket messages are excluded. Missing lengths are counted separately. This is not total network usage.
 

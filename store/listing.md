@@ -16,7 +16,7 @@ Keep the page title and network activity visible while you work.
 
 Click the extension icon to open a side panel that follows the active tab in its window. Long page titles wrap across lines.
 
-- Track requests, requests in progress, final HTTP errors, and connection failures.
+- Track requests, requests in progress, final HTTP errors, and request failures.
 - Compare average and longest completed request durations.
 - View known final response sizes, with unknown sizes and cache hits counted separately.
 

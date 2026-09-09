@@ -66,6 +66,9 @@ summary {
   text-decoration: underline;
   cursor: pointer;
 }
+.stat-button:enabled {
+  color: var(--danger);
+}
 .stat-button:disabled {
   text-decoration: none;
   cursor: default;
@@ -73,10 +76,15 @@ summary {
 }
 #failureDialog {
   box-sizing: border-box;
-  width: calc(100% - 2rem);
-  max-width: 36rem;
+  width: calc(100% - 0.5rem);
+  max-width: calc(100% - 0.5rem);
+  margin-inline: 0.25rem;
+  margin-block: 0.25rem auto;
   max-height: calc(100% - 2rem);
-  padding: 0;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.625rem;
+  background: var(--panel);
   color: var(--text);
   overflow: auto;
 }

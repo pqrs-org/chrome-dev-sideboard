@@ -13,16 +13,16 @@ const connectPanel = () => {
       connectPanel()
       if (typeof state.tabId === 'number') {
         port.postMessage({ type: 'init', tabId: state.tabId })
-        storagePendingUntil = 0
-        requestStorageSnapshot()
+        snapshotPendingUntil = 0
+        requestSnapshot()
       }
     }, 250),
   )
 }
 let filterTimer = 0
 let jsonFilterTimer = 0
-let storageRequestId = 0
-let storagePendingUntil = 0
+let snapshotRequestId = 0
+let snapshotPendingUntil = 0
 
 const state = {
   tabId: null,
@@ -52,7 +52,7 @@ const elements = {
   editStorageButton: document.getElementById('editStorageButton'),
   storageEditor: document.getElementById('storageEditor'),
   storageEditorTitle: document.getElementById('storageEditorTitle'),
-  storageJsonInput: document.getElementById('storageJsonInput'),
+  storageValueInput: document.getElementById('storageValueInput'),
   storageEditStatus: document.getElementById('storageEditStatus'),
   cancelStorageEdit: document.getElementById('cancelStorageEdit'),
   saveStorageEdit: document.getElementById('saveStorageEdit'),
@@ -72,15 +72,18 @@ const elements = {
 const handlePanelMessage = (message) => {
   if (message.type === 'metadataChanged') {
     if (message.tabId === state.tabId && state.mode === 'metadata') {
-      storagePendingUntil = 0
-      requestStorageSnapshot()
+      snapshotPendingUntil = 0
+      requestSnapshot()
     }
     return
   }
   if (message.type === 'metadataSnapshot') {
-    if (message.tabId !== state.tabId || message.requestId !== storageRequestId)
+    if (
+      message.tabId !== state.tabId ||
+      message.requestId !== snapshotRequestId
+    )
       return
-    storagePendingUntil = 0
+    snapshotPendingUntil = 0
     if (JSON.stringify(state.metadata) !== JSON.stringify(message.snapshot)) {
       state.metadata = message.snapshot
       renderMetadata()
@@ -96,7 +99,7 @@ const handlePanelMessage = (message) => {
       return
     elements.saveStorageEdit.disabled = false
     elements.cancelStorageEdit.disabled = false
-    elements.storageJsonInput.disabled = false
+    elements.storageValueInput.disabled = false
     if (!message.ok && storageEdit.deleting) {
       storageEdit = null
       render()
@@ -123,10 +126,10 @@ const handlePanelMessage = (message) => {
 
     if (
       message.requestId !== undefined &&
-      message.requestId !== storageRequestId
+      message.requestId !== snapshotRequestId
     )
       return
-    storagePendingUntil = 0
+    snapshotPendingUntil = 0
     if (storageEdit) return
     const nextStorage = normalizeStorageSnapshot(message.snapshot)
     const { timestamp: oldTime, ...oldValues } = state.storage
@@ -142,12 +145,12 @@ const handlePanelMessage = (message) => {
   }
 }
 
-const selectStorageMode = (mode) => {
+const selectMode = (mode) => {
   state.mode = mode
-  storagePendingUntil = 0
-  storageRequestId++
+  snapshotPendingUntil = 0
+  snapshotRequestId++
   state.selectedStorageId = getStorageEntries().at(0)?.id || null
-  requestStorageSnapshot()
+  requestSnapshot()
   render()
 }
 
@@ -158,27 +161,25 @@ const initialize = async () => {
   inspectorWindowId = (await chrome.windows.getCurrent()).id
   await selectCurrentTab()
 
-  if (chrome.tabs) {
-    chrome.tabs.onActivated.addListener(({ windowId }) => {
-      if (windowId === inspectorWindowId) selectCurrentTab()
-    })
+  chrome.tabs.onActivated.addListener(({ windowId }) => {
+    if (windowId === inspectorWindowId) selectCurrentTab()
+  })
 
-    chrome.tabs.onUpdated.addListener((tabId, changes) => {
-      if (
-        tabId === state.tabId &&
-        (changes.url || changes.status === 'complete')
-      ) {
-        storageRequestId++
-        storagePendingUntil = 0
-        state.metadata = null
-        state.storage = normalizeStorageSnapshot(null)
-        requestStorageSnapshot()
-        render()
-      }
-    })
-    chrome.tabs.onRemoved.addListener(() => selectCurrentTab())
-    chrome.tabs.onReplaced.addListener(() => selectCurrentTab())
-  }
+  chrome.tabs.onUpdated.addListener((tabId, changes) => {
+    if (
+      tabId === state.tabId &&
+      (changes.url || changes.status === 'complete')
+    ) {
+      snapshotRequestId++
+      snapshotPendingUntil = 0
+      state.metadata = null
+      state.storage = normalizeStorageSnapshot(null)
+      requestSnapshot()
+      render()
+    }
+  })
+  chrome.tabs.onRemoved.addListener(() => selectCurrentTab())
+  chrome.tabs.onReplaced.addListener(() => selectCurrentTab())
 }
 
 const selectCurrentTab = async () => {
@@ -203,8 +204,8 @@ const selectCurrentTab = async () => {
     return
   }
 
-  storagePendingUntil = 0
-  storageRequestId++
+  snapshotPendingUntil = 0
+  snapshotRequestId++
   state.tabId = tabId
 
   state.selectedStorageId = null
@@ -212,7 +213,7 @@ const selectCurrentTab = async () => {
   state.storage = normalizeStorageSnapshot(null)
   render()
   port.postMessage({ type: 'init', tabId })
-  requestStorageSnapshot()
+  requestSnapshot()
 }
 
 const getCurrentTabId = async () => {
@@ -276,7 +277,6 @@ const renderModeChrome = () => {
     !entry ||
     !state.storage.documentId ||
     Boolean(state.storage.error)
-  elements.editStorageButton.textContent = 'Edit'
   elements.storageModeButton.classList.toggle(
     'active',
     state.mode === 'storage',
@@ -360,10 +360,6 @@ const renderDetail = () => {
   elements.rawButton.setAttribute('aria-pressed', String(state.rawView))
   elements.rawButton.classList.toggle('active', state.rawView)
   elements.jsonFilterInput.disabled = state.rawView
-  renderStorageDetail()
-}
-
-const renderStorageDetail = () => {
   const entry = getSelectedStorageEntry()
   if (state.storage.error) {
     renderEmptyDetail(
@@ -466,14 +462,7 @@ const renderJsonTree = (
       return null
     }
 
-    const row = document.createElement('div')
-    row.className = 'tree-row'
-    row.append(
-      renderKey(key),
-      document.createTextNode(': '),
-      renderPrimitive(value),
-    )
-    return row
+    return renderPrimitiveStorage(value, key)
   }
 
   const children = []
@@ -541,20 +530,20 @@ const emptyState = (text) => {
   return node
 }
 
-const requestStorageSnapshot = () => {
+const requestSnapshot = () => {
   if (
     typeof state.tabId === 'number' &&
     !storageEdit &&
-    Date.now() >= storagePendingUntil
+    Date.now() >= snapshotPendingUntil
   ) {
-    storagePendingUntil = Date.now() + 5000
+    snapshotPendingUntil = Date.now() + 5000
     try {
       port.postMessage({
         type: state.mode === 'metadata' ? 'getMetadata' : 'getStorage',
-        requestId: ++storageRequestId,
+        requestId: ++snapshotRequestId,
       })
     } catch (_) {
-      storagePendingUntil = 0
+      snapshotPendingUntil = 0
     }
   }
 }
@@ -620,13 +609,13 @@ const normalizeSearchText = (value) => {
 const parseMaybeJson = (value) => {
   const trimmed = String(value || '').trim()
   if (!trimmed || !(trimmed.startsWith('{') || trimmed.startsWith('['))) {
-    return { ok: false, value }
+    return { ok: false }
   }
 
   try {
     return { ok: true, value: JSON.parse(trimmed) }
   } catch (_) {
-    return { ok: false, value }
+    return { ok: false }
   }
 }
 
@@ -811,15 +800,15 @@ elements.editStorageButton.addEventListener('click', () => {
     entry.area === 'cookie'
       ? `Edit Cookie: ${entry.name}`
       : `Edit ${entry.area === 'local' ? 'Local' : 'Session'} Storage: ${entry.key}`
-  elements.storageJsonInput.value = json
+  elements.storageValueInput.value = json
     ? JSON.stringify(parsed, null, 2)
     : entry.value
   elements.storageEditStatus.textContent = ''
   elements.saveStorageEdit.disabled = false
   elements.cancelStorageEdit.disabled = false
-  elements.storageJsonInput.disabled = false
+  elements.storageValueInput.disabled = false
   elements.storageEditor.showModal()
-  elements.storageJsonInput.focus()
+  elements.storageValueInput.focus()
 })
 
 elements.cancelStorageEdit.addEventListener('click', () => {
@@ -834,7 +823,7 @@ elements.storageEditor.addEventListener('cancel', (event) => {
 
 elements.saveStorageEdit.addEventListener('click', () => {
   if (!storageEdit) return
-  const value = elements.storageJsonInput.value
+  const value = elements.storageValueInput.value
   try {
     if (storageEdit.json) JSON.parse(value)
   } catch (error) {
@@ -844,21 +833,21 @@ elements.saveStorageEdit.addEventListener('click', () => {
   storageEdit.requestId = ++saveSequence
   elements.saveStorageEdit.disabled = true
   elements.cancelStorageEdit.disabled = true
-  elements.storageJsonInput.disabled = true
+  elements.storageValueInput.disabled = true
   elements.storageEditStatus.textContent = 'Saving…'
   port.postMessage({ type: 'setStorage', ...storageEdit, value })
 })
 
 elements.metadataModeButton.addEventListener('click', () =>
-  selectStorageMode('metadata'),
+  selectMode('metadata'),
 )
 
 elements.storageModeButton.addEventListener('click', () =>
-  selectStorageMode('storage'),
+  selectMode('storage'),
 )
 
 elements.cookiesModeButton.addEventListener('click', () =>
-  selectStorageMode('cookies'),
+  selectMode('cookies'),
 )
 
 elements.filterInput.addEventListener('input', () => {
@@ -896,12 +885,7 @@ initialize().catch((error) => {
   elements.detailMeta.textContent = error.message
 })
 
-// CSS-hidden inspector frames do not necessarily change document visibility.
 window.setInterval(() => {
-  if (
-    state.mode !== 'metadata' &&
-    document.visibilityState !== 'hidden' &&
-    !window.frameElement?.hidden
-  )
-    requestStorageSnapshot()
+  if (state.mode !== 'metadata' && document.visibilityState !== 'hidden')
+    requestSnapshot()
 }, 1000)

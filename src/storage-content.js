@@ -1,4 +1,4 @@
-// Website storage is accessed only through internal extension messages.
+// Page metadata and website storage are accessed through internal extension messages.
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'dev-sideboard:get-metadata') {
     observePageMetadata()

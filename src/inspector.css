@@ -284,25 +284,12 @@ button:disabled:hover {
     monospace;
 }
 
-.hidden {
-  display: none !important;
-}
-
 .tree-row {
   display: block;
   min-height: 1.1875rem;
   overflow-wrap: anywhere;
   white-space: normal;
   word-break: break-word;
-}
-
-.tree-row summary {
-  cursor: pointer;
-}
-
-.tree-row details {
-  display: block;
-  max-width: 100%;
 }
 
 .tree-view details,
@@ -363,7 +350,7 @@ button:disabled:hover {
   font-size: inherit;
   overflow-wrap: anywhere;
 }
-#storageJsonInput {
+#storageValueInput {
   width: 100%;
   min-height: 16rem;
   height: 45vh;

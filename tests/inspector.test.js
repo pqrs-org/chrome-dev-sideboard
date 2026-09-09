@@ -276,9 +276,8 @@ test('inspector opens Page, rejects stale metadata, refreshes scoped data, filte
     elements.get('rawButton').listeners.click()
   assert.equal(elements.get('treeView').children[0].textContent, 'test')
   assert.equal(elements.get('editStorageButton').disabled, false)
-  assert.equal(elements.get('editStorageButton').textContent, 'Edit')
   elements.get('editStorageButton').listeners.click()
-  elements.get('storageJsonInput').value = ' text\nvalue '
+  elements.get('storageValueInput').value = ' text\nvalue '
   elements.get('saveStorageEdit').listeners.click()
   assert.equal(sent.at(-1).value, ' text\nvalue ')
   receive({
@@ -312,11 +311,11 @@ test('inspector opens Page, rejects stale metadata, refreshes scoped data, filte
   const beforeEditPoll = sent.length
   poll()
   assert.equal(sent.length, beforeEditPoll)
-  elements.get('storageJsonInput').value = '{'
+  elements.get('storageValueInput').value = '{'
   elements.get('saveStorageEdit').listeners.click()
   assert.match(elements.get('storageEditStatus').textContent, /Invalid JSON/)
   assert.notEqual(sent.at(-1).type, 'setStorage')
-  elements.get('storageJsonInput').value = '{"enabled":true}'
+  elements.get('storageValueInput').value = '{"enabled":true}'
   elements.get('saveStorageEdit').listeners.click()
   assert.equal(sent.at(-1).type, 'setStorage')
   assert.equal(sent.at(-1).documentId, 'doc-1')
@@ -329,7 +328,7 @@ test('inspector opens Page, rejects stale metadata, refreshes scoped data, filte
     error: 'Value changed',
   })
   assert.equal(elements.get('storageEditor').open, true)
-  assert.equal(elements.get('storageJsonInput').value, '{"enabled":true}')
+  assert.equal(elements.get('storageValueInput').value, '{"enabled":true}')
   assert.equal(elements.get('saveStorageEdit').disabled, false)
   elements.get('saveStorageEdit').listeners.click()
   receive({
@@ -374,12 +373,11 @@ test('inspector opens Page, rejects stale metadata, refreshes scoped data, filte
   })
   assert.equal(elements.get('editStorageButton').disabled, true)
   elements.get('cookiesModeButton').listeners.click()
-  assert.equal(elements.get('editStorageButton').textContent, 'Edit')
   assert.equal(elements.get('editStorageButton').disabled, false)
   assert.match(elements.get('detailMeta').textContent, /HttpOnly/)
   elements.get('editStorageButton').listeners.click()
-  assert.equal(elements.get('storageJsonInput').value, 'raw-token')
-  elements.get('storageJsonInput').value = 'new-token'
+  assert.equal(elements.get('storageValueInput').value, 'raw-token')
+  elements.get('storageValueInput').value = 'new-token'
   elements.get('saveStorageEdit').listeners.click()
   assert.equal(sent.at(-1).area, 'cookie')
   assert.equal(sent.at(-1).value, 'new-token')

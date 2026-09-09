@@ -23,7 +23,6 @@
     return {
       kind,
       requestId: details.requestId,
-      tabId: details.tabId,
       type: details.type,
       method: details.method,
       timeStamp: details.timeStamp,

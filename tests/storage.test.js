@@ -14,7 +14,7 @@ const event = () => {
     emit: (...args) => listeners.forEach((fn) => fn(...args)),
   }
 }
-const worker = (stored = {}) => {
+const worker = () => {
   let documentId = 'doc-1'
   const runtime = {
     id: 'extension',
@@ -22,9 +22,8 @@ const worker = (stored = {}) => {
     onMessage: event(),
     onConnect: event(),
   }
-  const tabs = { onRemoved: event(), onReplaced: event() }
+  const tabs = {}
   const navigation = {
-    onCommitted: event(),
     getFrame: async () => ({ documentId }),
   }
   vm.runInNewContext(
@@ -36,15 +35,6 @@ const worker = (stored = {}) => {
         runtime,
         tabs,
         webNavigation: navigation,
-        storage: {
-          session: {
-            get: async (key) => ({ [key]: structuredClone(stored[key]) }),
-            set: async (value) => Object.assign(stored, structuredClone(value)),
-            remove: async (key) => {
-              delete stored[key]
-            },
-          },
-        },
       },
     },
   )

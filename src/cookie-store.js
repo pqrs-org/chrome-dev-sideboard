@@ -29,16 +29,12 @@ const CookieStore = (() => {
     if (!store) throw new Error('Cookie store unavailable.')
     const query = { url: frame.url, storeId: store.id }
     let cookies = await chrome.cookies.getAll(query)
-    if (chrome.cookies.getPartitionKey) {
-      const { partitionKey } = await chrome.cookies.getPartitionKey({
-        tabId,
-        frameId: 0,
-      })
-      if (partitionKey)
-        cookies.push(
-          ...(await chrome.cookies.getAll({ ...query, partitionKey })),
-        )
-    }
+    const { partitionKey } = await chrome.cookies.getPartitionKey({
+      tabId,
+      frameId: 0,
+    })
+    if (partitionKey)
+      cookies.push(...(await chrome.cookies.getAll({ ...query, partitionKey })))
     cookies = [...new Map(cookies.map((c) => [identity(c), c])).values()]
     return { documentId: frame.documentId, url: frame.url, cookies }
   }

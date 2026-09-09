@@ -1,10 +1,10 @@
 # Chrome Web Store listing
 
-Draft for Page Title Bar 1.1.0. Review before submission.
+Draft for Dev Sideboard 1.1.0. Review before submission.
 
 ## Name
 
-Page Title Bar
+Dev Sideboard
 
 ## Summary
 

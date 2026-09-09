@@ -1,4 +1,4 @@
-# chrome-page-title-bar
+# Dev Sideboard
 
 A Chrome extension that displays the page title, network measurements, JSON responses, and website storage in the side panel.
 
@@ -21,7 +21,7 @@ Requires Chrome 116 or later.
 1. Open `chrome://extensions` in Chrome.
 2. Enable **Developer mode**.
 3. Select **Load unpacked** and choose this directory.
-4. Pin Page Title Bar to the toolbar and click its icon to open the side panel.
+4. Pin Dev Sideboard to the toolbar and click its icon to open the side panel.
 5. Reload the page to measure it from the beginning.
 
 HTTP and HTTPS traffic is observed automatically using the requested website permissions.

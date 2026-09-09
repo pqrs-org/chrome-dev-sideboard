@@ -11,7 +11,7 @@ files += sorted((root / "src").glob("*.js"))
 files += sorted((root / "src").glob("*.html"))
 files += sorted((root / "src").glob("*.css"))
 files += [root / path for path in sorted(set(manifest["icons"].values()))]
-output = root / "dist" / f"page-title-bar-{manifest['version']}.zip"
+output = root / "dist" / f"dev-sideboard-{manifest['version']}.zip"
 output.parent.mkdir(exist_ok=True)
 with ZipFile(output, "w", ZIP_DEFLATED) as archive:
     for path in files:

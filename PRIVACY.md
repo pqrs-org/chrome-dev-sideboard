@@ -1,8 +1,8 @@
-# Page Title Bar Privacy Policy
+# Dev Sideboard Privacy Policy
 
 Last updated: September 9, 2026
 
-Page Title Bar displays the current page title and network measurements in Chrome's side panel.
+Dev Sideboard displays the current page title and network measurements in Chrome's side panel.
 
 ## Information used
 
@@ -45,4 +45,4 @@ The extension does not sell user data or use it for advertising, creditworthines
 
 ## Contact
 
-For privacy questions, open an issue in the [Page Title Bar repository](https://github.com/pqrs-org/chrome-page-title-bar/issues). Issues are public; do not include private page titles, URLs, or other sensitive information.
+For privacy questions, open an issue in the [Dev Sideboard repository](https://github.com/pqrs-org/chrome-page-title-bar/issues). Issues are public; do not include private page titles, URLs, or other sensitive information.

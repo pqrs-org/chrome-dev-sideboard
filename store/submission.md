@@ -63,7 +63,7 @@ No login or paid account is required for the basic panel. Use Chrome 116 or late
 
 ## Release checklist
 
-- Run `make package`; upload `dist/page-title-bar-1.1.0.zip` as a new item.
+- Run `make package`; upload `dist/dev-sideboard-1.1.0.zip` as a new item.
 - Complete publisher registration, verified contact information, two-step verification, and the trader/non-trader declaration using the publisher's actual circumstances.
 - Publish PRIVACY.md at the public URL in listing.md and verify the homepage/support links.
 - Paste the listing, single purpose, permission explanations, and test instructions.

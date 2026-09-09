@@ -24,7 +24,6 @@
               type="search"
               placeholder="Filter URL or JSON"
             />
-            <button id="reloadButton" type="button">Reload</button>
             <button id="refreshStorageButton" class="hidden" type="button">
               Refresh
             </button>
@@ -87,6 +86,9 @@
               <button id="collapseTreeButton" class="tab" type="button">
                 Collapse
               </button>
+              <button id="editStorageButton" class="tab hidden" type="button">
+                Edit JSON
+              </button>
               <button id="copyButton" class="tab" type="button">Copy</button>
             </div>
           </header>
@@ -94,6 +96,19 @@
         </section>
       </div>
     </main>
+    <dialog id="storageEditor" aria-labelledby="storageEditorTitle">
+      <h2 id="storageEditorTitle">Edit JSON</h2>
+      <textarea
+        id="storageJsonInput"
+        aria-label="JSON value"
+        spellcheck="false"
+      ></textarea>
+      <p id="storageEditStatus" role="status"></p>
+      <div class="editor-actions">
+        <button id="cancelStorageEdit" type="button">Cancel</button>
+        <button id="saveStorageEdit" type="button">Save</button>
+      </div>
+    </dialog>
     <script src="inspector.js"></script>
   </body>
 </html>

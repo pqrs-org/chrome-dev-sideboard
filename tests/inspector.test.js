@@ -12,6 +12,13 @@ class Element {
     this.listeners = {};
     this.classList = { toggle() {} };
   }
+  showModal() {
+    this.open = true;
+  }
+  close() {
+    this.open = false;
+  }
+  focus() {}
   addEventListener(name, fn) {
     this.listeners[name] = fn;
   }
@@ -44,6 +51,7 @@ test("inspector loads scoped snapshots, filters JSON, copies, and reads storage 
     onDisconnect: { addListener() {} },
   };
   const queries = [];
+  let poll;
   vm.runInNewContext(
     fs.readFileSync(require.resolve("../src/inspector.js"), "utf8"),
     {
@@ -66,6 +74,9 @@ test("inspector loads scoped snapshots, filters JSON, copies, and reads storage 
         },
       },
       window: {
+        setInterval: (fn) => {
+          poll = fn;
+        },
         setTimeout: (fn) => {
           fn();
         },
@@ -129,4 +140,58 @@ test("inspector loads scoped snapshots, filters JSON, copies, and reads storage 
   });
   await elements.get("copyButton").listeners.click();
   assert.equal(copied, "test");
+  const beforePoll = sent.length;
+  poll();
+  assert.equal(sent.length, beforePoll + 1);
+  assert.equal(sent.at(-1).type, "getStorage");
+  poll();
+  assert.equal(sent.length, beforePoll + 1);
+  receive({
+    type: "storageSnapshot",
+    tabId: 1,
+    snapshot: {
+      documentId: "doc-1",
+      local: [{ key: "settings", value: '{"enabled":false}' }],
+      session: [],
+    },
+  });
+  elements.get("editStorageButton").listeners.click();
+  assert.equal(elements.get("storageEditor").open, true);
+  const beforeEditPoll = sent.length;
+  poll();
+  assert.equal(sent.length, beforeEditPoll);
+  elements.get("storageJsonInput").value = "{";
+  elements.get("saveStorageEdit").listeners.click();
+  assert.match(elements.get("storageEditStatus").textContent, /Invalid JSON/);
+  assert.notEqual(sent.at(-1).type, "setStorage");
+  elements.get("storageJsonInput").value = '{"enabled":true}';
+  elements.get("saveStorageEdit").listeners.click();
+  assert.equal(sent.at(-1).type, "setStorage");
+  assert.equal(sent.at(-1).documentId, "doc-1");
+  assert.equal(sent.at(-1).expectedValue, '{"enabled":false}');
+  receive({
+    type: "storageSaved",
+    tabId: 1,
+    requestId: sent.at(-1).requestId,
+    ok: false,
+    error: "Value changed",
+  });
+  assert.equal(elements.get("storageEditor").open, true);
+  assert.equal(elements.get("storageJsonInput").value, '{"enabled":true}');
+  assert.equal(elements.get("saveStorageEdit").disabled, false);
+  elements.get("saveStorageEdit").listeners.click();
+  receive({
+    type: "storageSaved",
+    tabId: 1,
+    requestId: sent.at(-1).requestId,
+    ok: true,
+    snapshot: {
+      documentId: "doc-1",
+      local: [{ key: "settings", value: '{"enabled":true}' }],
+      session: [],
+    },
+  });
+  assert.equal(elements.get("storageEditor").open, false);
+  await elements.get("copyButton").listeners.click();
+  assert.equal(JSON.parse(copied).enabled, true);
 });

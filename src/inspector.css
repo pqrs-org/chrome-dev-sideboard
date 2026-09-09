@@ -107,7 +107,7 @@ input {
 
 .toolbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 0.5rem;
   padding: 0.625rem;
   border-bottom: 1px solid var(--border);
@@ -362,4 +362,44 @@ button:disabled:hover {
     border-right: 0;
     border-bottom: 1px solid var(--border);
   }
+}
+
+#storageEditor {
+  width: calc(100% - 2rem);
+  max-width: 40rem;
+  max-height: calc(100% - 2rem);
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  color: var(--text);
+  background: var(--panel);
+  overflow: auto;
+}
+#storageEditor::backdrop {
+  background: rgb(0 0 0 / 35%);
+}
+#storageEditor h2 {
+  margin: 0 0 0.75rem;
+  font-size: inherit;
+  overflow-wrap: anywhere;
+}
+#storageJsonInput {
+  width: 100%;
+  min-height: 16rem;
+  height: 45vh;
+  resize: vertical;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  padding: 0.5rem;
+  font: 0.8125rem/1.5 monospace;
+}
+#storageEditStatus {
+  color: var(--error);
+  overflow-wrap: anywhere;
+}
+.editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
 }

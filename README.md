@@ -7,7 +7,7 @@ A Chrome extension that displays the page title, network measurements, JSON resp
 - Open the side panel directly from the extension icon
 - Read the full page title, with automatic line wrapping
 - Follow the active tab in each window
-- Switch to Fetch / Storage to inspect JSON fetch/XHR responses and local/session storage
+- Inspect JSON fetch/XHR responses and local/session storage
 - Filter requests by URL, payload, method, or errors; search, expand, collapse, and copy JSON trees
 - Track request counts, requests in progress, HTTP errors, and connection failures
 - Click HTTP error or connection failure counts to inspect URLs and error codes (latest 100 failures per tab)
@@ -43,9 +43,13 @@ When upgrading from the title chip version, reload pages that still show the old
 
 ## JSON and storage inspection
 
-The Fetch / Storage view integrates the tools from `tekezo/chrome-devtools`. JSON-like fetch/XHR responses are captured automatically, even when the panel is closed. Worker requests and requests made before the capture script starts are not included. Fetch capture stops reading at 1 MiB; saved payload text is limited to 100,000 characters per record. Each tab retains at most 80 records and 512,000 serialized characters in session memory, with older records evicted first. Chrome's shared session quota may further limit capture. Truncated payloads are shown as text. JSON trees display at most 5,000 nodes and 100 nesting levels.
+Below the compact network summary, the Fetch / Storage view integrates the tools from `tekezo/chrome-devtools`. JSON-like fetch/XHR responses are captured automatically, even when the panel is closed. Worker requests and requests made before the capture script starts are not included. Fetch capture stops reading at 1 MiB; saved payload text is limited to 100,000 characters per record. Each tab retains at most 80 records and 512,000 serialized characters in session memory, with older records evicted first. Chrome's shared session quota may further limit capture. Truncated payloads are shown as text. JSON trees display at most 5,000 nodes and 100 nesting levels.
 
-History resets on a new document and is removed on tab close or browser restart. Local Storage and Session Storage are read from the top frame on demand when opening the Storage view or using Refresh; these values are not persisted by the extension. Copy writes the selected payload or storage value to the clipboard. Captured data may contain private application data. Page scripts can interfere with or imitate capture events, so this is a development aid rather than a tamper-proof network trace.
+History resets on a new document and is removed on tab close or browser restart. Local Storage and Session Storage are read from the top frame when opening the Storage view or using Refresh, and automatically about once per second while the Storage view is visible; these values are not persisted by the extension. Copy writes the selected payload or storage value to the clipboard. Captured data may contain private application data. Page scripts can interfere with or imitate capture events, so this is a development aid rather than a tamper-proof network trace.
+
+Storage auto-refresh pauses while editing JSON. It reads website storage locally and does not reload the page or send network requests.
+
+Storage JSON values can be edited using Edit JSON and saved explicitly. Save updates only the selected Local Storage or Session Storage key on the inspected document; invalid JSON and values changed since inspection are rejected. Edits are saved to the website’s storage, not to extension history. The page may need to be reloaded to use the new value.
 
 ## Development
 

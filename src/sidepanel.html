@@ -8,19 +8,6 @@
     <link rel="stylesheet" href="sidepanel.css" />
   </head>
   <body>
-    <nav class="view-switch" aria-label="Panel view">
-      <button id="overviewView" type="button" aria-pressed="true">
-        Overview
-      </button>
-      <button id="inspectorView" type="button" aria-pressed="false">
-        Fetch / Storage
-      </button>
-    </nav>
-    <iframe
-      id="inspectorFrame"
-      title="JSON requests and website storage"
-      hidden
-    ></iframe>
     <main id="overviewContent">
       <section class="page-details" aria-live="polite" aria-atomic="true">
         <h1 id="pageTitle">Loading…</h1>
@@ -52,7 +39,7 @@
             </dd>
           </div>
           <div>
-            <dt>Connection failures</dt>
+            <dt title="Connection failures">Failures</dt>
             <dd>
               <button
                 id="networkErrors"
@@ -67,15 +54,15 @@
             </dd>
           </div>
           <div>
-            <dt>Average duration</dt>
+            <dt title="Average request duration">Avg duration</dt>
             <dd id="averageDuration">—</dd>
           </div>
           <div>
-            <dt>Longest duration</dt>
+            <dt title="Longest request duration">Max duration</dt>
             <dd id="maxDuration">—</dd>
           </div>
           <div>
-            <dt>Known response size</dt>
+            <dt title="Known response body size">Response size</dt>
             <dd id="responseSize">—</dd>
           </div>
           <div>
@@ -108,6 +95,11 @@
       </section>
       <div id="status" class="status" role="status"></div>
     </main>
+    <iframe
+      id="inspectorFrame"
+      src="inspector.html"
+      title="JSON requests and website storage"
+    ></iframe>
     <dialog id="failureDialog" aria-labelledby="failureTitle">
       <div class="dialog-heading">
         <h2 id="failureTitle">Connection failures</h2>
@@ -118,6 +110,5 @@
     </dialog>
     <script src="network-stats.js"></script>
     <script src="sidepanel.js"></script>
-    <script src="panel-views.js"></script>
   </body>
 </html>

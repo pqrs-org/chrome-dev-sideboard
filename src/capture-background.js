@@ -115,28 +115,81 @@
             });
         });
       } else if (
-        message?.type === "reloadTab" &&
-        Number.isInteger(client.tabId)
-      ) {
-        chrome.tabs.reload(client.tabId).catch(console.error);
-      } else if (
         message?.type === "getStorage" &&
         Number.isInteger(client.tabId)
       ) {
         const tabId = client.tabId;
         const version = client.version;
-        chrome.tabs
-          .sendMessage(tabId, { type: prefix + "get-storage" }, { frameId: 0 })
-          .then((snapshot) => {
+        chrome.webNavigation
+          .getFrame({ tabId, frameId: 0 })
+          .then(async (frame) => {
+            if (!frame?.documentId)
+              throw new Error("Page unavailable. Reload the page.");
+            const snapshot = await chrome.tabs.sendMessage(
+              tabId,
+              { type: prefix + "get-storage" },
+              { documentId: frame.documentId },
+            );
             if (ports.has(client) && version === client.version)
-              post(port, { type: "storageSnapshot", tabId, snapshot });
+              post(port, {
+                type: "storageSnapshot",
+                requestId: message.requestId,
+                tabId,
+                snapshot: { ...snapshot, documentId: frame.documentId },
+              });
           })
           .catch((error) => {
             if (ports.has(client) && version === client.version)
               post(port, {
                 type: "storageSnapshot",
+                requestId: message.requestId,
                 tabId,
                 snapshot: { error: error.message },
+              });
+          });
+      } else if (
+        message?.type === "setStorage" &&
+        Number.isInteger(client.tabId)
+      ) {
+        const tabId = client.tabId;
+        const version = client.version;
+        chrome.webNavigation
+          .getFrame({ tabId, frameId: 0 })
+          .then(async (frame) => {
+            if (!message.documentId || frame?.documentId !== message.documentId)
+              throw new Error(
+                "The page changed. Refresh storage and edit it again.",
+              );
+            const result = await chrome.tabs.sendMessage(
+              tabId,
+              {
+                type: prefix + "set-storage",
+                area: message.area,
+                key: message.key,
+                value: message.value,
+                expectedValue: message.expectedValue,
+              },
+              { documentId: message.documentId },
+            );
+            if (ports.has(client) && version === client.version)
+              post(port, {
+                type: "storageSaved",
+                tabId,
+                requestId: message.requestId,
+                ...result,
+                snapshot: result.snapshot
+                  ? { ...result.snapshot, documentId: message.documentId }
+                  : undefined,
+              });
+          })
+          .catch((error) => {
+            if (ports.has(client) && version === client.version)
+              post(port, {
+                type: "storageSaved",
+                tabId,
+                requestId: message.requestId,
+                ok: false,
+                error: error.message,
               });
           });
       }

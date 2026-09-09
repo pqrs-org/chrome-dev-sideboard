@@ -31,6 +31,29 @@ function sendRuntimeMessage(message) {
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "json-fetch-visualizer:set-storage") {
+    try {
+      if (
+        !["local", "session"].includes(message.area) ||
+        typeof message.key !== "string" ||
+        typeof message.value !== "string" ||
+        typeof message.expectedValue !== "string"
+      )
+        throw new Error("Invalid storage edit.");
+      JSON.parse(message.value);
+      const storage =
+        window[message.area === "local" ? "localStorage" : "sessionStorage"];
+      if (storage.getItem(message.key) !== message.expectedValue)
+        throw new Error(
+          "This value changed on the page. Refresh storage and edit it again.",
+        );
+      storage.setItem(message.key, message.value);
+      sendResponse({ ok: true, snapshot: readStorageSnapshot() });
+    } catch (error) {
+      sendResponse({ ok: false, error: error.message });
+    }
+    return false;
+  }
   if (!message || message.type !== "json-fetch-visualizer:get-storage") {
     return false;
   }

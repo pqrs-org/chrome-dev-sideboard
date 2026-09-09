@@ -14,9 +14,13 @@ Network measurements retain: per-tab counters, durations, sizes, pending request
 
 The extension also injects scripts into HTTP/HTTPS pages and frames to wrap fetch and XMLHttpRequest and capture JSON-like responses. Request URLs, methods, status codes, timestamps, timings, and response payload text are retained in session memory. Each tab stores at most 80 records and 512,000 serialized characters, with payload text limited to 100,000 characters per record. These payloads may contain personal information, tokens, or other application secrets. The extension does not intentionally read request authorization headers or browser cookies.
 
-Local Storage and Session Storage keys and values are read from the active page's top frame on demand for the Storage view. They remain in panel memory and are not persisted by the extension. The Copy action writes the selected response or storage value to the clipboard only when clicked.
+Local Storage and Session Storage keys and values are read from the active page's top frame for the Storage view, with automatic refresh about once per second while that view is visible. They remain in panel memory and are not persisted by the extension. The Copy action writes the selected response or storage value to the clipboard only when clicked.
 
 The extension does not change request parameters, block traffic, or send additional requests to probe a site.
+
+Storage auto-refresh pauses while editing JSON. It reads website storage locally and does not reload the page or send network requests.
+
+Storage JSON values can be edited using Edit JSON and saved explicitly. Save updates only the selected Local Storage or Session Storage key on the inspected document; invalid JSON and values changed since inspection are rejected. Edits are saved to the website’s storage, not to extension history. The page may need to be reloaded to use the new value.
 
 ## Storage and retention
 

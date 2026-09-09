@@ -41,7 +41,7 @@ Select “No, I am not using remote code.” All executable JavaScript and style
 Disclose locally handled data as required by Chrome's policy:
 
 - Web history / web browsing activity: tab URLs and network activity are processed. The current main document URL and request metadata are retained temporarily in session memory.
-- Website content: the page title and response metadata are processed. JSON response bodies are captured in bounded session history. Local Storage and Session Storage values are read on demand and are not persisted. Such content can include personal information or authentication tokens; review applicable dashboard categories.
+- Website content: the page title and response metadata are processed. JSON response bodies are captured in bounded session history. Local Storage and Session Storage values refresh about once per second while the Storage view is visible; polling pauses during JSON editing. These snapshots are not persisted by the extension. Such content can include personal information or authentication tokens; review applicable dashboard categories.
 
 Review the current dashboard category definitions against PRIVACY.md. Raw response headers can contain sensitive information even though they are not retained. Do not claim that this extension handles no user data or only operates while its panel is open.
 
@@ -59,7 +59,7 @@ No login or paid account is required for the basic panel. Use Chrome 116 or late
 6. Reload or navigate to another document and verify reset. SPA history changes retain totals.
 7. Close and reopen the panel. Values remain in this session. Restart Chrome and reload a page to begin a new measurement.
 
-8. Open Fetch / Storage, reload a page that requests JSON through fetch and XHR, and verify filtering, tree expansion/collapse, and Copy. Switch to Storage and verify Local Storage and Session Storage values and Refresh.
+8. Open Fetch / Storage, reload a page that requests JSON through fetch and XHR, and verify filtering, tree expansion/collapse, and Copy. Switch to Storage and verify Local Storage and Session Storage values and Refresh. Select a JSON value, use Edit JSON, and verify that Save updates only that key.
 
 ## Release checklist
 

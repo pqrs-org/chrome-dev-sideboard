@@ -143,3 +143,163 @@ test("fetch capture preserves the response and limits clone reads", async () => 
   for (let i = 0; i < 10 && messages.length < 3; i++) await tick();
   assert.equal(messages.at(-1).payload.truncated, true);
 });
+
+test("storage edits update only the selected key and reject invalid JSON or stale values", () => {
+  const local = new Map([
+    ["settings", '{"enabled":false}'],
+    ["other", "keep"],
+  ]);
+  const session = new Map([["settings", '{"count":1}']]);
+  const storage = (values) => ({
+    get length() {
+      return values.size;
+    },
+    key: (index) => [...values.keys()][index],
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+  });
+  let listener;
+  vm.runInNewContext(
+    fs.readFileSync(require.resolve("../src/capture-bridge.js"), "utf8"),
+    {
+      window: {
+        addEventListener() {},
+        localStorage: storage(local),
+        sessionStorage: storage(session),
+      },
+      location: { href: "https://example.com/", origin: "https://example.com" },
+      chrome: {
+        runtime: {
+          onMessage: {
+            addListener: (fn) => {
+              listener = fn;
+            },
+          },
+        },
+      },
+    },
+  );
+  const send = (message) => {
+    let result;
+    listener(message, {}, (value) => {
+      result = value;
+    });
+    return result;
+  };
+  const edit = {
+    type: "json-fetch-visualizer:set-storage",
+    area: "local",
+    key: "settings",
+    expectedValue: '{"enabled":false}',
+    value: '{"enabled":true}',
+  };
+  assert.equal(send({ ...edit, value: "{" }).ok, false);
+  assert.equal(local.get("settings"), edit.expectedValue);
+  assert.equal(send(edit).ok, true);
+  assert.equal(local.get("settings"), edit.value);
+  assert.equal(local.get("other"), "keep");
+  assert.equal(session.get("settings"), '{"count":1}');
+  assert.equal(send(edit).ok, false);
+  assert.equal(
+    send({
+      ...edit,
+      area: "session",
+      expectedValue: '{"count":1}',
+      value: '{"count":2}',
+    }).ok,
+    true,
+  );
+  assert.equal(session.get("settings"), '{"count":2}');
+  local.delete("settings");
+  assert.equal(send(edit).ok, false);
+  assert.equal(local.has("settings"), false);
+});
+
+test("storage writes are routed to the inspected document and rejected after navigation", async () => {
+  const w = worker();
+  const sent = [];
+  w.tabs.sendMessage = async (...args) => {
+    sent.push(args);
+    return { ok: true, snapshot: { local: [], session: [] } };
+  };
+  const replies = [];
+  const port = {
+    name: "json-fetch-visualizer:panel",
+    postMessage: (m) => replies.push(m),
+    onMessage: event(),
+    onDisconnect: event(),
+  };
+  w.runtime.onConnect.emit(port);
+  port.onMessage.emit({ type: "init", tabId: 1 });
+  await tick();
+  const edit = {
+    type: "setStorage",
+    documentId: "doc-1",
+    requestId: 1,
+    area: "local",
+    key: "settings",
+    expectedValue: "{}",
+    value: '{"a":1}',
+  };
+  port.onMessage.emit(edit);
+  await tick();
+  assert.equal(sent[0][2].documentId, "doc-1");
+  assert.equal(sent[0][1].key, "settings");
+  assert.equal(replies.at(-1).ok, true);
+  w.setDocument("doc-2");
+  port.onMessage.emit({ ...edit, requestId: 2 });
+  await tick();
+  assert.equal(sent.length, 1);
+  assert.equal(replies.at(-1).ok, false);
+  assert.match(replies.at(-1).error, /page changed/);
+});
+
+test("fetch observer returns the original promise and preserves rejection even if reporting fails", async () => {
+  const failure = new TypeError("Failed to fetch");
+  let reject;
+  const original = new Promise((_resolve, fail) => {
+    reject = fail;
+  });
+  let observed;
+  let nativeThis;
+  let nativeArgs;
+  const window = {
+    fetch: function (...args) {
+      nativeThis = this;
+      nativeArgs = args;
+      return original;
+    },
+    postMessage(message) {
+      if (message.type.endsWith(":record")) {
+        observed = message.payload;
+        throw new Error("Reporting unavailable");
+      }
+    },
+  };
+  function XHR() {}
+  XHR.prototype.open = function () {};
+  XHR.prototype.send = function () {};
+  vm.runInNewContext(
+    fs.readFileSync(require.resolve("../src/capture.js"), "utf8"),
+    {
+      window,
+      XMLHttpRequest: XHR,
+      URL,
+      TextDecoder,
+      performance,
+      crypto: { randomUUID: () => "session" },
+      location: { href: "https://example.com/" },
+    },
+  );
+  const options = { method: "POST" };
+  const result = window.fetch("/api", options);
+  assert.equal(result, original);
+  assert.equal(nativeThis, window);
+  assert.equal(nativeArgs[0], "/api");
+  assert.equal(nativeArgs[1], options);
+  reject(failure);
+  await assert.rejects(result, (error) => error === failure);
+  await tick();
+  assert.equal(observed.status, 0);
+  assert.equal(observed.parseError, "Failed to fetch");
+});

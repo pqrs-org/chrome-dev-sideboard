@@ -1,8 +1,5 @@
 .page-details {
-  padding: 1rem;
-  border: 1px solid var(--border);
-  border-radius: 0.625rem;
-  background: var(--panel);
+  padding: 0;
 }
 
 #pageTitle {
@@ -15,39 +12,44 @@
 }
 
 .network-details {
-  margin-top: 1rem;
+  margin-top: 0.5rem;
 }
 
 #networkHeading {
-  margin: 0 0 0.75rem;
-  font-size: inherit;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
 
 .network-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.25rem 0.75rem;
   margin: 0;
 }
 
 .network-stats > div {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 1rem;
-  padding: 0.375rem 0;
+  min-width: 0;
+  padding: 0.1875rem 0;
   border-bottom: 1px solid var(--border);
 }
 
 .network-stats dt {
+  font-size: 0.6875rem;
+  overflow-wrap: anywhere;
   color: var(--muted);
 }
 
 .network-stats dd {
   margin: 0;
-  text-align: right;
+  text-align: left;
   font-variant-numeric: tabular-nums;
 }
 
 details {
-  margin-top: 0.75rem;
+  margin-top: 0.25rem;
 }
 
 summary {
@@ -74,10 +76,7 @@ summary {
   width: calc(100% - 2rem);
   max-width: 36rem;
   max-height: calc(100% - 2rem);
-  padding: 1rem;
-  border: 1px solid var(--border);
-  border-radius: 0.625rem;
-  background: var(--panel);
+  padding: 0;
   color: var(--text);
   overflow: auto;
 }
@@ -105,34 +104,18 @@ body {
   display: flex;
   flex-direction: column;
 }
-.view-switch {
-  display: flex;
-  gap: 0.5rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid var(--border);
-}
-.view-switch button {
-  flex: 1;
-  font: inherit;
-  color: var(--text);
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 0.375rem;
-  padding: 0.5rem;
-  cursor: pointer;
-}
-.view-switch button[aria-pressed="true"] {
-  font-weight: 600;
-  border-color: var(--text);
-}
 #overviewContent {
+  flex: 0 1 auto;
+  max-height: 42vh;
+  padding: 0.625rem 0.75rem 0.5rem;
+  border-bottom: 1px solid var(--border);
   overflow: auto;
   min-height: 0;
 }
 #inspectorFrame {
   width: 100%;
-  flex: 1;
-  min-height: 0;
+  flex: 1 0 18rem;
+  min-height: 18rem;
   border: 0;
 }
 [hidden] {

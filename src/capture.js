@@ -156,63 +156,54 @@
   }
 
   if (typeof originalFetch === "function") {
-    window.fetch = async function visualizedFetch(input, init) {
+    window.fetch = function visualizedFetch(input, init) {
       const startedAt = now();
-      const url = getAbsoluteUrl(input);
-      const method = getFetchMethod(input, init);
-
+      // Return the original promise: the observer must not create a separate
+      // rejecting promise for the page or replace its fetch result/error.
+      const request = originalFetch.apply(this, arguments);
       try {
-        const response = await originalFetch.apply(this, arguments);
-        const durationMs = Math.round(now() - startedAt);
-
-        readFetchResponse(response)
-          .then((payload) => {
-            if (!payload) {
-              return;
-            }
-
-            emit({
-              transport: "fetch",
-              method,
-              url,
-              status: response.status,
-              statusText: response.statusText,
-              ok: response.ok,
-              durationMs,
-              ...payload,
-            });
-          })
-          .catch((error) => {
-            emit({
-              transport: "fetch",
-              method,
-              url,
-              status: response.status,
-              statusText: response.statusText,
-              ok: response.ok,
-              durationMs,
-              json: null,
-              raw: "",
-              parseError: error.message,
-            });
+        const url = getAbsoluteUrl(input);
+        const method = getFetchMethod(input, init);
+        request
+          .then(
+            async (response) => {
+              const durationMs = Math.round(now() - startedAt);
+              const payload = await readFetchResponse(response);
+              if (!payload) return;
+              emit({
+                transport: "fetch",
+                method,
+                url,
+                status: response.status,
+                statusText: response.statusText,
+                ok: response.ok,
+                durationMs,
+                ...payload,
+              });
+            },
+            (error) => {
+              emit({
+                transport: "fetch",
+                method,
+                url,
+                status: 0,
+                statusText: "Request failed",
+                ok: false,
+                durationMs: Math.round(now() - startedAt),
+                json: null,
+                raw: "",
+                parseError: String(error?.message || error),
+              });
+            },
+          )
+          .catch(() => {
+            // Clone reads and reporting can fail independently of the page's
+            // request (for example, when a response stream is aborted).
           });
-
-        return response;
-      } catch (error) {
-        emit({
-          transport: "fetch",
-          method,
-          url,
-          status: 0,
-          statusText: "Request failed",
-          ok: false,
-          durationMs: Math.round(now() - startedAt),
-          json: null,
-          raw: "",
-          parseError: error.message,
-        });
-        throw error;
+      } catch (_) {
+        // Instrumentation errors must not change the original fetch outcome.
       }
+      return request;
     };
   }
 

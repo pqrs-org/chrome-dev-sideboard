@@ -19,6 +19,8 @@ function connectPanel() {
 }
 let filterTimer = 0;
 let payloadFilterTimer = 0;
+let storageRequestId = 0;
+let storagePendingUntil = 0;
 
 const state = {
   tabId: null,
@@ -40,14 +42,22 @@ const state = {
   selectedStorageId: null,
 };
 
+let storageEdit = null;
+let saveSequence = 0;
 const elements = {
+  editStorageButton: document.getElementById("editStorageButton"),
+  storageEditor: document.getElementById("storageEditor"),
+  storageEditorTitle: document.getElementById("storageEditorTitle"),
+  storageJsonInput: document.getElementById("storageJsonInput"),
+  storageEditStatus: document.getElementById("storageEditStatus"),
+  cancelStorageEdit: document.getElementById("cancelStorageEdit"),
+  saveStorageEdit: document.getElementById("saveStorageEdit"),
   fetchModeButton: document.getElementById("fetchModeButton"),
   storageModeButton: document.getElementById("storageModeButton"),
   filterInput: document.getElementById("filterInput"),
   methodFilterGroup: document.getElementById("methodFilterGroup"),
   errorsOnlyLabel: document.getElementById("errorsOnlyLabel"),
   errorsOnlyInput: document.getElementById("errorsOnlyInput"),
-  reloadButton: document.getElementById("reloadButton"),
   refreshStorageButton: document.getElementById("refreshStorageButton"),
   countLabel: document.getElementById("countLabel"),
   requestList: document.getElementById("requestList"),
@@ -61,6 +71,27 @@ const elements = {
 };
 
 function handlePanelMessage(message) {
+  if (message.type === "storageSaved") {
+    if (
+      !storageEdit ||
+      message.tabId !== storageEdit.tabId ||
+      message.requestId !== storageEdit.requestId
+    )
+      return;
+    elements.saveStorageEdit.disabled = false;
+    elements.cancelStorageEdit.disabled = false;
+    elements.storageJsonInput.disabled = false;
+    if (!message.ok) {
+      elements.storageEditStatus.textContent =
+        message.error || "Unable to save.";
+      return;
+    }
+    state.storage = normalizeStorageSnapshot(message.snapshot);
+    storageEdit = null;
+    elements.storageEditor.close();
+    render();
+    return;
+  }
   if (message.type === "snapshot") {
     if (typeof message.tabId === "number" && message.tabId !== state.tabId) {
       return;
@@ -92,7 +123,18 @@ function handlePanelMessage(message) {
       return;
     }
 
-    state.storage = normalizeStorageSnapshot(message.snapshot);
+    if (
+      message.requestId !== undefined &&
+      message.requestId !== storageRequestId
+    )
+      return;
+    storagePendingUntil = 0;
+    if (storageEdit) return;
+    const nextStorage = normalizeStorageSnapshot(message.snapshot);
+    const { timestamp: oldTime, ...oldValues } = state.storage;
+    const { timestamp: newTime, ...newValues } = nextStorage;
+    if (JSON.stringify(oldValues) === JSON.stringify(newValues)) return;
+    state.storage = nextStorage;
     if (
       !getStorageEntries().some((entry) => entry.id === state.selectedStorageId)
     ) {
@@ -102,6 +144,56 @@ function handlePanelMessage(message) {
   }
 }
 connectPanel();
+
+elements.editStorageButton.addEventListener("click", () => {
+  const entry = getSelectedStorageEntry();
+  if (!entry || !state.storage.documentId) return;
+  let parsed;
+  try {
+    parsed = JSON.parse(entry.value);
+  } catch (_) {
+    return;
+  }
+  storageEdit = {
+    tabId: state.tabId,
+    documentId: state.storage.documentId,
+    area: entry.area,
+    key: entry.key,
+    expectedValue: entry.value,
+  };
+  elements.storageEditorTitle.textContent = `Edit ${entry.area === "local" ? "Local" : "Session"} Storage: ${entry.key}`;
+  elements.storageJsonInput.value = JSON.stringify(parsed, null, 2);
+  elements.storageEditStatus.textContent = "";
+  elements.saveStorageEdit.disabled = false;
+  elements.cancelStorageEdit.disabled = false;
+  elements.storageJsonInput.disabled = false;
+  elements.storageEditor.showModal();
+  elements.storageJsonInput.focus();
+});
+elements.cancelStorageEdit.addEventListener("click", () => {
+  storageEdit = null;
+  elements.storageEditor.close();
+});
+elements.storageEditor.addEventListener("cancel", (event) => {
+  if (elements.saveStorageEdit.disabled) event.preventDefault();
+  else storageEdit = null;
+});
+elements.saveStorageEdit.addEventListener("click", () => {
+  if (!storageEdit) return;
+  const value = elements.storageJsonInput.value;
+  try {
+    JSON.parse(value);
+  } catch (error) {
+    elements.storageEditStatus.textContent = `Invalid JSON: ${error.message}`;
+    return;
+  }
+  storageEdit.requestId = ++saveSequence;
+  elements.saveStorageEdit.disabled = true;
+  elements.cancelStorageEdit.disabled = true;
+  elements.storageJsonInput.disabled = true;
+  elements.storageEditStatus.textContent = "Saving…";
+  port.postMessage({ type: "setStorage", ...storageEdit, value });
+});
 
 elements.fetchModeButton.addEventListener("click", () => {
   state.mode = "fetch";
@@ -146,10 +238,6 @@ elements.methodFilterGroup.addEventListener("click", (event) => {
   state.methodFilter = button.dataset.methodFilter;
   renderList();
   renderMethodFilterButtons();
-});
-
-elements.reloadButton.addEventListener("click", () => {
-  port.postMessage({ type: "reloadTab" });
 });
 
 elements.refreshStorageButton.addEventListener("click", () => {
@@ -197,6 +285,8 @@ async function initialize() {
         tabId === state.tabId &&
         (changes.url || changes.status === "complete")
       ) {
+        storageRequestId++;
+        storagePendingUntil = 0;
         state.storage = normalizeStorageSnapshot(null);
         if (state.mode === "storage") requestStorageSnapshot();
         render();
@@ -229,6 +319,8 @@ async function selectCurrentTab() {
     return;
   }
 
+  storagePendingUntil = 0;
+  storageRequestId++;
   state.tabId = tabId;
   state.records = [];
   state.selectedId = null;
@@ -316,6 +408,28 @@ function render() {
 }
 
 function renderModeChrome() {
+  if (
+    storageEdit &&
+    (storageEdit.tabId !== state.tabId ||
+      storageEdit.documentId !== state.storage.documentId)
+  ) {
+    storageEdit = null;
+    elements.storageEditor.close();
+  }
+  elements.editStorageButton.classList.toggle(
+    "hidden",
+    state.mode !== "storage",
+  );
+  const entry = getSelectedStorageEntry();
+  let validJson = false;
+  try {
+    if (entry) {
+      JSON.parse(entry.value);
+      validJson = true;
+    }
+  } catch (_) {}
+  elements.editStorageButton.disabled =
+    !validJson || !state.storage.documentId || Boolean(state.storage.error);
   elements.fetchModeButton.classList.toggle("active", state.mode === "fetch");
   elements.storageModeButton.classList.toggle(
     "active",
@@ -644,10 +758,29 @@ function emptyState(text) {
 }
 
 function requestStorageSnapshot() {
-  if (typeof state.tabId === "number") {
-    port.postMessage({ type: "getStorage" });
+  if (
+    typeof state.tabId === "number" &&
+    !storageEdit &&
+    Date.now() >= storagePendingUntil
+  ) {
+    storagePendingUntil = Date.now() + 5000;
+    try {
+      port.postMessage({ type: "getStorage", requestId: ++storageRequestId });
+    } catch (_) {
+      storagePendingUntil = 0;
+    }
   }
 }
+
+// CSS-hidden inspector frames do not necessarily change document visibility.
+window.setInterval(() => {
+  if (
+    state.mode === "storage" &&
+    document.visibilityState !== "hidden" &&
+    !window.frameElement?.hidden
+  )
+    requestStorageSnapshot();
+}, 1000);
 
 function getCopyText() {
   if (state.mode === "storage") {
@@ -678,6 +811,7 @@ function flashCopyButton() {
 
 function normalizeStorageSnapshot(snapshot) {
   return {
+    documentId: snapshot?.documentId || "",
     url: snapshot?.url || "",
     origin: snapshot?.origin || "",
     timestamp: snapshot?.timestamp || null,

@@ -7,8 +7,6 @@ const { panelState, editState, panelElements, FILTER_DEBOUNCE_MS } =
 
 let renderPanel: () => void
 
-const SEARCH_TEXT_LIMIT = 12000
-
 let filterTimer = 0
 
 const getStorageEntries = () => {
@@ -263,9 +261,7 @@ const prepareStorageEntries = (
 
 const buildSearchText = (values: unknown[]) => {
   return SidepanelJson.normalizeSearchText(
-    values
-      .map((value) => String(value || '').slice(0, SEARCH_TEXT_LIMIT))
-      .join('\n'),
+    values.map((value) => String(value || '')).join('\n'),
   )
 }
 

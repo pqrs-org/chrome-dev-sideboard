@@ -164,7 +164,7 @@ test('page metadata preserves duplicates and reads current DOM without accessing
     Array.from(snapshot.openGraph, (e) => e.value),
     ['one.png', 'two.png', ''],
   )
-  assert.equal(snapshot.description[0].value, '<b>literal</b>')
+  assert.equal(snapshot.description, undefined)
   assert.equal(snapshot.twitter[0].value, 'summary')
   tags[0].content = 'changed.png'
   read()

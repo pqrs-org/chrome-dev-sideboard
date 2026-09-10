@@ -59,10 +59,10 @@ test('side panel rejects a snapshot that finishes after navigation', async () =>
   const read = s.api.readMetadata(1)
   await tick()
   s.setDocument('doc-2')
-  finish({ description: [{ key: 'description', value: 'old page' }] })
+  finish({ openGraph: [{ key: 'og:description', value: 'old page' }] })
   const result = await read
   assert.match(result.error, /page changed/)
-  assert.equal(result.description, undefined)
+  assert.equal(result.openGraph, undefined)
 })
 
 test('metadata notifications require the extension, main frame and current document; commands are not accepted', async () => {

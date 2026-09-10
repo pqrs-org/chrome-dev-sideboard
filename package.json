@@ -2,6 +2,7 @@
   "name": "dev-sideboard",
   "private": true,
   "scripts": {
+    "watch": "nodemon",
     "build": "sh scripts/build.sh",
     "build:sidepanel": "esbuild src/sidepanel.ts --bundle --minify --target=chrome142 --outfile=build.new/src/sidepanel.min.js",
     "build:background": "esbuild src/background.ts src/storage-content.ts --bundle --minify --target=chrome142 --outdir=build.new/src",
@@ -20,6 +21,7 @@
     "esbuild": "^0.28.2",
     "eslint": "^10.10.0",
     "globals": "^17.12.0",
+    "nodemon": "^3.1.14",
     "prettier": "^3.9.6",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.70.0"
@@ -27,5 +29,19 @@
   "engines": {
     "node": ">=22.13.0"
   },
-  "packageManager": "pnpm@11.24.0"
+  "packageManager": "pnpm@11.24.0",
+  "nodemonConfig": {
+    "watch": [
+      "src",
+      "icons",
+      "manifest.json",
+      "tsconfig.json",
+      "package.json",
+      "scripts/build.sh"
+    ],
+    "ext": "*",
+    "delay": "300ms",
+    "signal": "SIGTERM",
+    "exec": "pnpm run build"
+  }
 }

@@ -17,15 +17,53 @@
       margin: 0;
     }
 
+    & a {
+      color: var(--accent);
+      text-decoration: underline;
+
+      &:focus-visible {
+        outline: 0.125rem solid var(--accent);
+        outline-offset: 0.125rem;
+      }
+    }
+
     & dt {
       color: var(--muted);
       overflow-wrap: anywhere;
     }
 
-    & dd {
+    & dd,
+    .metadata-canonical {
       margin: 0 0 0.625rem;
       white-space: pre-wrap;
       overflow-wrap: anywhere;
+    }
+  }
+
+  .metadata-description {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 6;
+    overflow: hidden;
+    line-height: 1.5;
+
+    &.expanded {
+      display: block;
+    }
+  }
+
+  .metadata-description-toggle {
+    display: block;
+    margin-top: 0.25rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--accent);
+    font: inherit;
+    cursor: pointer;
+
+    &[hidden] {
+      display: none;
     }
   }
 

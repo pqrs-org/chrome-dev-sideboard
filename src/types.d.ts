@@ -94,7 +94,6 @@ interface MetadataEntry {
 interface MetadataSnapshot {
   documentId?: string
   canonical?: MetadataEntry[]
-  description?: MetadataEntry[]
   openGraph?: MetadataEntry[]
   twitter?: MetadataEntry[]
   baseUrl?: string

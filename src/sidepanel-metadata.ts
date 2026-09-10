@@ -5,8 +5,10 @@ import { ImagePreviews } from './image-previews.js'
 const { panelState, panelElements } = SidepanelState
 
 let previewBatch = ImagePreviews.createBatch()
+let descriptionObserver: ResizeObserver | undefined
 
 const renderMetadata = () => {
+  descriptionObserver?.disconnect()
   previewBatch.dispose()
   previewBatch = ImagePreviews.createBatch()
   if (panelState.mode !== 'metadata') {
@@ -27,8 +29,7 @@ const renderMetadata = () => {
   const nodes = []
   for (const [key, title] of [
     ['canonical', 'Canonical URL'],
-    ['description', 'Description'],
-    data.openGraph?.length
+    data.openGraph?.length || !data.twitter?.length
       ? (['openGraph', 'Open Graph'] as const)
       : (['twitter', 'Twitter Card'] as const),
   ] as const) {
@@ -40,14 +41,64 @@ const renderMetadata = () => {
       nodes.push(SidepanelJson.emptyState('Not specified'))
       continue
     }
+    if (key === 'canonical') {
+      const urls = document.createElement('div')
+      for (const entry of entries) {
+        const url = document.createElement('p')
+        url.className = 'metadata-canonical'
+        url.textContent = entry.value || '(empty)'
+        linkMetadataUrl(url, entry.value, data.baseUrl)
+        urls.append(url)
+      }
+      nodes.push(urls)
+      continue
+    }
     const list = document.createElement('dl')
-    for (const entry of groupMetadataTags(entries)) {
+    const grouped = groupMetadataTags(entries)
+    for (const entry of sortMetadata(grouped)) {
       const name = document.createElement('dt')
       name.textContent = entry.key
       const value = document.createElement('dd')
       value.textContent = entry.values
         ? JSON.stringify(entry.values, null, 2)
         : entry.value || '(empty)'
+      if (
+        ['og:description', 'twitter:description'].includes(
+          entry.key.toLowerCase(),
+        )
+      ) {
+        const text = document.createElement('div')
+        text.className = 'metadata-description'
+        text.textContent = value.textContent
+        const toggle = document.createElement('button')
+        toggle.type = 'button'
+        toggle.className = 'metadata-description-toggle'
+        toggle.textContent = 'Show more'
+        toggle.hidden = true
+        toggle.setAttribute('aria-expanded', 'false')
+        toggle.addEventListener('click', () => {
+          const expanded = toggle.getAttribute('aria-expanded') !== 'true'
+          text.classList.toggle('expanded', expanded)
+          toggle.setAttribute('aria-expanded', String(expanded))
+          toggle.textContent = expanded ? 'Show less' : 'Show more'
+        })
+        value.replaceChildren(text, toggle)
+        descriptionObserver ??= new ResizeObserver((observations) => {
+          for (const { target } of observations) {
+            const text = target as HTMLElement
+            const toggle = text.nextElementSibling as HTMLButtonElement
+            const lineHeight = Number.parseFloat(
+              getComputedStyle(text).lineHeight,
+            )
+            // Measure again when the panel width changes, including expanded text.
+            toggle.hidden = text.scrollHeight <= lineHeight * 6 + 1
+          }
+        })
+        descriptionObserver.observe(text)
+      }
+      if (imageUrlKeys.includes(entry.key.toLowerCase())) {
+        linkMetadataUrl(value, entry.value, data.baseUrl)
+      }
       const imageUrl = metadataImageUrl(entry, data.baseUrl)
       if (imageUrl) {
         const status = document.createElement('span')
@@ -82,30 +133,86 @@ const renderMetadata = () => {
   panelElements.metadataView.replaceChildren(...nodes)
 }
 
-const metadataImageUrl = (
-  entry: MetadataEntry,
-  baseUrl: string | undefined,
-) => {
-  if (
-    ![
-      'og:image',
-      'og:image:url',
-      'og:image:secure_url',
-      'twitter:image',
-      'twitter:image:src',
-    ].includes(entry.key.toLowerCase()) ||
-    !entry.value.trim()
-  ) {
+// Keep repeated keys in source order (including multiple images).
+const sortMetadata = (entries: MetadataEntry[]) => {
+  const priority = (key: string) => {
+    if (key === 'og:image:width' || key === 'og:image:height') {
+      return 3
+    }
+    if (/^(og|twitter):image(?::|$)/.test(key)) {
+      return 0
+    }
+    if (/^(og|twitter):title$/.test(key)) {
+      return 1
+    }
+    if (/^(og|twitter):description$/.test(key)) {
+      return 2
+    }
+    return 3
+  }
+  return [...entries].sort((a, b) => {
+    const left = a.key.toLowerCase()
+    const right = b.key.toLowerCase()
+    const difference = priority(left) - priority(right)
+    // Keep the prioritized image entries in source order.
+    if (difference || priority(left) < 3) {
+      return difference
+    }
+    return left < right ? -1 : left > right ? 1 : 0
+  })
+}
+
+const imageUrlKeys = [
+  'og:image',
+  'og:image:url',
+  'og:image:secure_url',
+  'twitter:image',
+  'twitter:image:src',
+]
+
+const metadataWebUrl = (value: string, baseUrl: string | undefined) => {
+  if (!value.trim()) {
     return null
   }
   try {
-    const url = new URL(entry.value, baseUrl)
-    return url.protocol === 'https:' && !url.username && !url.password
-      ? url.href
+    const url = new URL(value, baseUrl)
+    // Page-provided URLs must never become executable or privileged links.
+    return ['http:', 'https:'].includes(url.protocol) &&
+      !url.username &&
+      !url.password
+      ? url
       : null
   } catch {
     return null
   }
+}
+
+const linkMetadataUrl = (
+  element: HTMLElement,
+  value: string,
+  baseUrl: string | undefined,
+) => {
+  const url = metadataWebUrl(value, baseUrl)
+  if (!url) {
+    return
+  }
+  const link = document.createElement('a')
+  link.href = url.href
+  link.textContent = value
+  link.target = '_blank'
+  link.rel = 'noopener noreferrer'
+  element.replaceChildren(link)
+}
+
+const metadataImageUrl = (
+  entry: MetadataEntry,
+  baseUrl: string | undefined,
+) => {
+  if (!imageUrlKeys.includes(entry.key.toLowerCase())) {
+    return null
+  }
+  const url = metadataWebUrl(entry.value, baseUrl)
+  return url?.protocol === 'https:' ? url.href : null
 }
 
 const groupMetadataTags = (entries: MetadataEntry[]) => {
@@ -129,7 +236,10 @@ const groupMetadataTags = (entries: MetadataEntry[]) => {
 }
 
 const initializeMetadata = () => {
-  window.addEventListener('pagehide', () => previewBatch.dispose())
+  window.addEventListener('pagehide', () => {
+    previewBatch.dispose()
+    descriptionObserver?.disconnect()
+  })
 }
 
 export const SidepanelMetadata = { renderMetadata, initializeMetadata }

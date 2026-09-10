@@ -113,16 +113,13 @@ const readPageMetadata = () => {
       key: 'Canonical URL',
       value: link.getAttribute('href') === null ? '' : link.href,
     }))
-  const description = []
   const openGraph = []
   const twitter = []
   for (const meta of document.querySelectorAll('meta')) {
     const key = meta.getAttribute('property') || meta.getAttribute('name') || ''
     const normalized = key.toLowerCase()
     const entry = { key, value: meta.getAttribute('content') || '' }
-    if (normalized === 'description') {
-      description.push(entry)
-    } else if (normalized.startsWith('og:')) {
+    if (normalized.startsWith('og:')) {
       openGraph.push(entry)
     } else if (normalized.startsWith('twitter:')) {
       twitter.push(entry)
@@ -130,7 +127,6 @@ const readPageMetadata = () => {
   }
   return {
     canonical,
-    description,
     openGraph,
     twitter,
     baseUrl: document.baseURI,

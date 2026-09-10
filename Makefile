@@ -1,9 +1,12 @@
 MAGICK := magick
 
-.PHONY: build typecheck lint check format format-check icons test package
+.PHONY: build watch typecheck lint check format format-check icons test package
 
 build:
 	pnpm run build
+
+watch:
+	pnpm run watch
 
 typecheck:
 	pnpm run typecheck

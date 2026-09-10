@@ -53,6 +53,10 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
   runModule(
     require.resolve('../.test-build/src/sidepanel-tabs.js'),
     {
+      ResizeObserver: class {
+        observe() {}
+        disconnect() {}
+      },
       URL,
       console,
       document: {
@@ -185,7 +189,12 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
     type: 'metadataSnapshot',
     tabId: 1,
     snapshot: {
-      canonical: [{ key: 'Canonical URL', value: 'https://example.com/' }],
+      canonical: [
+        { key: 'Canonical URL', value: 'https://example.com/' },
+        { key: 'Canonical URL', value: 'javascript:alert(1)' },
+        { key: 'Canonical URL', value: 'file:///private/data' },
+        { key: 'Canonical URL', value: 'http://example.com/' },
+      ],
       openGraph: [
         { key: 'og:title', value: '<script>example</script>' },
         { key: 'og:video:tag', value: 'Music' },
@@ -196,23 +205,29 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
     },
   })
   assert.equal(
-    elements.get('metadataView').children[1].children[1].textContent,
+    elements.get('metadataView').children[1].children[0].children[0]
+      .textContent,
     'https://example.com/',
   )
+  const canonicalUrls = elements.get('metadataView').children[1].children
+  assert.equal(canonicalUrls[0].children[0].href, 'https://example.com/')
+  assert.equal(canonicalUrls[1].children.length, 0)
+  assert.equal(canonicalUrls[2].children.length, 0)
+  assert.equal(canonicalUrls[3].children[0].href, 'http://example.com/')
   assert.equal(
-    elements.get('metadataView').children[5].children[1].textContent,
+    elements.get('metadataView').children[3].children[1].textContent,
     '<script>example</script>',
   )
-  assert.equal(elements.get('metadataView').children[5].children.length, 4)
+  assert.equal(elements.get('metadataView').children[3].children.length, 4)
   assert.deepEqual(
     JSON.parse(
-      elements.get('metadataView').children[5].children[3].textContent,
+      elements.get('metadataView').children[3].children[3].textContent,
     ),
     ['Music', '<b>Live</b>', 'Music'],
   )
-  assert.equal(elements.get('metadataView').children.length, 6)
+  assert.equal(elements.get('metadataView').children.length, 4)
   assert.equal(
-    elements.get('metadataView').children[4].textContent,
+    elements.get('metadataView').children[2].textContent,
     'Open Graph',
   )
   await receive({
@@ -224,11 +239,11 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
     },
   })
   assert.equal(
-    elements.get('metadataView').children[4].textContent,
+    elements.get('metadataView').children[2].textContent,
     'Twitter Card',
   )
   assert.equal(
-    elements.get('metadataView').children[5].children[1].textContent,
+    elements.get('metadataView').children[3].children[1].textContent,
     'Twitter title',
   )
   assert.equal(elements.get('storageWorkspace').hidden, true)
@@ -252,12 +267,47 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
       ],
     },
   })
-  const imageEntries = elements.get('metadataView').children[5].children
-  const image = imageEntries[1].children[1]
+  const imageEntries = elements.get('metadataView').children[3].children
+  const link = imageEntries[1].children[0]
+  assert.equal(link.href, 'https://example.com/base/preview.png')
+  assert.equal(link.target, '_blank')
+  assert.equal(link.rel, 'noopener noreferrer')
+  const image = imageEntries[1].children[2]
   assert.equal(image.src, 'blob:preview')
   assert.equal(imageEntries[3].children.length, 0)
   assert.equal(imageEntries[5].children.length, 0)
   assert.equal(imageEntries[7].children.length, 0)
+  await receive({
+    type: 'metadataSnapshot',
+    snapshot: {
+      openGraph: [
+        { key: 'og:z', value: 'last' },
+        { key: 'og:description', value: 'Long description' },
+        { key: 'og:title', value: 'Title' },
+        { key: 'og:image', value: 'first.png' },
+        { key: 'og:image:width', value: '100' },
+        { key: 'og:image:height', value: '200' },
+        { key: 'og:image', value: 'second.png' },
+        { key: 'og:a', value: 'first' },
+      ],
+    },
+  })
+  assert.deepEqual(
+    elements
+      .get('metadataView')
+      .children[3].children.filter((_, index) => index % 2 === 0)
+      .map((node) => node.textContent),
+    [
+      'og:image',
+      'og:image',
+      'og:title',
+      'og:description',
+      'og:a',
+      'og:image:height',
+      'og:image:width',
+      'og:z',
+    ],
+  )
   elements.get('storageModeButton').listeners.click()
   assert.equal(elements.get('metadataView').hidden, true)
   assert.equal(queries[0].windowId, 7)

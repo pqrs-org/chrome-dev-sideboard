@@ -44,6 +44,7 @@ See the [privacy policy](PRIVACY.md) for data handling and retention details.
 Development requires Node.js 22.13 or later, pnpm, and zip. Run `pnpm install --frozen-lockfile` to install the development dependencies. There are no runtime dependencies.
 
 - `make build` compiles TypeScript, bundles and minifies the side panel scripts and styles, and copies extension assets into `build/`. Rebuild after source changes, then reload the extension in Chrome.
+- `make watch` (or `pnpm watch`) builds immediately and rebuilds when source files, extension assets, or build settings change. Reload the extension in Chrome to apply each successful build. Stop watching with Ctrl+C.
 - `make check` runs type checking, ESLint, shell syntax checks, tests, and formatting checks.
 - `make test` builds the extension and runs the tests.
 - `make format` (or `pnpm format:write`) formats supported source files and documentation with Prettier. Formatting also runs automatically after `pnpm install` and `pnpm update`.

@@ -4,12 +4,12 @@
   "scripts": {
     "build": "sh scripts/build.sh",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . && ruff check scripts && sh -n scripts/build.sh",
+    "lint": "eslint . && sh -n scripts/build.sh && sh -n scripts/package.sh",
     "test": "pnpm run build && node --test tests/*.test.js",
     "format": "pnpm run format:write",
-    "format:check": "prettier --check . && ruff format --check scripts",
+    "format:check": "prettier --check .",
     "check": "pnpm run typecheck && pnpm run lint && pnpm test && pnpm run format:check",
-    "format:write": "prettier --write . && ruff format scripts",
+    "format:write": "prettier --write .",
     "postinstall": "pnpm run format:write"
   },
   "devDependencies": {

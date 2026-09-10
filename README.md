@@ -41,12 +41,12 @@ See the [privacy policy](PRIVACY.md) for data handling and retention details.
 
 ## Development and publishing
 
-Development requires Node.js 22.13 or later, pnpm, Python 3, and Ruff. Run `pnpm install --frozen-lockfile` to install the development dependencies. There are no runtime dependencies.
+Development requires Node.js 22.13 or later, pnpm, and zip. Run `pnpm install --frozen-lockfile` to install the development dependencies. There are no runtime dependencies.
 
 - `make build` compiles TypeScript and copies extension assets into `build/`. Rebuild after source changes, then reload the extension in Chrome.
-- `make check` runs type checking, ESLint, Ruff, tests, and formatting checks.
+- `make check` runs type checking, ESLint, shell syntax checks, tests, and formatting checks.
 - `make test` builds the extension and runs the tests.
-- `make format` (or `pnpm format:write`) formats Python scripts with Ruff and other source files and documentation with Prettier. Formatting also runs automatically after `pnpm install` and `pnpm update`.
+- `make format` (or `pnpm format:write`) formats supported source files and documentation with Prettier. Formatting also runs automatically after `pnpm install` and `pnpm update`.
 - `make package` runs checks and creates the upload ZIP in `dist/`.
 
 See the [store listing](store/listing.md) and [submission notes](store/submission.md) for publication materials.

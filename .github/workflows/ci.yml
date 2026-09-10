@@ -30,11 +30,6 @@ jobs:
         with:
           run_install: false
 
-      - uses: astral-sh/ruff-action@v4.1.0
-        with:
-          version: '0.16.5'
-          args: --version
-
       - name: Install dependencies
         # Do not let postinstall formatting hide unformatted source changes.
         run: pnpm install --frozen-lockfile --ignore-scripts

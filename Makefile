@@ -24,7 +24,7 @@ test:
 	pnpm test
 
 package: check
-	python3 scripts/package.py
+	sh scripts/package.sh
 
 icons:
 	$(MAGICK) icons/icon-128.png -resize 16x16 -depth 8 icons/icon-16.png

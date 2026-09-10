@@ -28,13 +28,12 @@ const setup = (area = 'local') => {
   const sent = []
   const writes = []
   const cookies = {
-    read: async () => ({ documentId, cookies: [] }),
     write: async (...args) => writes.push(args),
   }
   const tabs = {
     sendMessage: async (...args) => {
       sent.push(args)
-      return { ok: true, snapshot: { local: [] } }
+      return { ok: true }
     },
   }
   const { SidepanelEditor } = runModule(
@@ -50,7 +49,6 @@ const setup = (area = 'local') => {
       './sidepanel-state.js': { SidepanelState: state },
       './sidepanel-storage.js': {
         SidepanelStorage: {
-          normalizeStorageSnapshot: (snapshot) => snapshot,
           getSelectedStorageEntry: () => ({
             area,
             key: 'key',
@@ -97,7 +95,7 @@ test('editor pins storage writes to the inspected document and rejects navigatio
   assert.equal(s.sent.length, 1)
 })
 
-test('editor ignores a storage save snapshot that finishes after navigation', async () => {
+test('editor rejects a save result that finishes after navigation', async () => {
   const s = setup()
   let finish
   s.tabs.sendMessage = () =>
@@ -109,7 +107,7 @@ test('editor ignores a storage save snapshot that finishes after navigation', as
   s.elements.saveStorageEdit.click()
   await tick()
   s.setDocument('doc-2')
-  finish({ ok: true, snapshot: { local: [{ key: 'stale', value: 'old' }] } })
+  finish({ ok: true })
   await tick()
   assert.match(s.elements.storageEditStatus.textContent, /page changed/)
   assert.equal(s.state.panelState.storage.local.length, 0)

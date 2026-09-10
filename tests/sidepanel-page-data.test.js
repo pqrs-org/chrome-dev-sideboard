@@ -17,13 +17,11 @@ const setup = () => {
   const tabs = {
     sendMessage: async (...args) => {
       sent.push(args)
-      return { ok: true, snapshot: { local: [], session: [] } }
+      return { local: [], session: [] }
     },
   }
-  const writes = []
   const cookies = {
     read: async () => ({ documentId, cookies: [] }),
-    write: async (...args) => writes.push(args),
   }
   const { SidepanelPageData: api } = runModule(
     require.resolve('../.test-build/src/sidepanel-page-data.js'),
@@ -40,8 +38,6 @@ const setup = () => {
     api,
     sent,
     tabs,
-    writes,
-    cookies,
     listeners,
     setDocument: (id) => {
       documentId = id

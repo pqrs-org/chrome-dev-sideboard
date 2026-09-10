@@ -186,7 +186,7 @@ export const PageNetworkStats = (() => {
         return state
       }
       state.completed++
-      if ((event.statusCode ?? request.statusCode ?? 0) >= 400) {
+      if ((statusCode ?? 0) >= 400) {
         state.httpErrors++
       }
       const duration = event.timeStamp - request.startedAt
@@ -195,10 +195,13 @@ export const PageNetworkStats = (() => {
         state.durationTotal += duration
         state.durationMax = Math.max(state.durationMax, duration)
       }
-      const code = event.statusCode ?? request.statusCode
-      if (event.fromCache || code === 304) {
+      if (event.fromCache || statusCode === 304) {
         state.cached++
-      } else if (request.method === 'HEAD' || code === 204 || code === 205) {
+      } else if (
+        request.method === 'HEAD' ||
+        statusCode === 204 ||
+        statusCode === 205
+      ) {
         state.knownSizes++
       } else if (request.bodySize !== null) {
         state.knownBytes += request.bodySize

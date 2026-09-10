@@ -179,6 +179,4 @@ const start = () => {
   }, 1000)
 }
 
-export const SidepanelTabs = { start }
-
-SidepanelTabs.start()
+start()

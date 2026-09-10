@@ -31,7 +31,6 @@ let failureKind: FailureDetail['kind'] = 'httpErrors'
 const renderFailures = () => {
   const items = (displayedState?.failureDetails || [])
     .filter((item) => item.kind === failureKind)
-    .slice()
     .reverse()
   failureTitle.textContent =
     failureKind === 'httpErrors' ? 'HTTP errors' : 'Request failures'

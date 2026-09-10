@@ -1,5 +1,11 @@
 'use strict'
 const ExtensionCookies = (() => {
+  // Chrome exposes no per-cookie ID. Build a key for deduplication, UI selection,
+  // and locating the cookie again before an edit or deletion.
+  // name/domain/path distinguish same-name cookies with different scopes;
+  // storeId separates browser cookie stores (e.g. regular and incognito).
+  // Both partition fields distinguish cookies isolated by top-level site and
+  // cross-site ancestry. Missing fields use consistent defaults for comparison.
   const identity = (c: chrome.cookies.Cookie) =>
     JSON.stringify([
       c.name,
@@ -9,6 +15,12 @@ const ExtensionCookies = (() => {
       c.partitionKey?.topLevelSite || '',
       c.partitionKey?.hasCrossSiteAncestor ?? false,
     ])
+  // Snapshot of the selected cookie for detecting changes since editing began.
+  // value detects content changes; hostOnly/secure/httpOnly/sameSite detect
+  // access-policy changes; session/expirationDate detect lifetime changes.
+  // This is a serialized comparison value, not a cryptographic hash or cookie ID.
+  // Comparing it before writing reduces stale edits, but is not atomic:
+  // Chrome has no compare-and-set API, so a later concurrent change can be overwritten.
   const fingerprint = (c: chrome.cookies.Cookie) =>
     JSON.stringify([
       identity(c),

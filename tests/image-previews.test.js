@@ -70,7 +70,7 @@ test('images omit credentials, allow redirects within request restrictions and o
   assert.deepEqual(s.revoked, ['blob:1'])
   assert.equal(s.timers.size, 0)
 })
-test('images reject HTTP, URL credentials, SVG and oversized streamed bodies', async () => {
+test('images reject HTTP, URL credentials and oversized streamed bodies', async () => {
   let fetches = 0
   const s = setup(async () => {
     fetches++
@@ -90,7 +90,6 @@ test('images reject HTTP, URL credentials, SVG and oversized streamed bodies', a
   await tick()
   assert.equal(fetches, 0)
   for (const result of [
-    response('<svg/>', { 'content-type': 'image/svg+xml' }),
     response('a', { 'content-length': String(6 * 1024 * 1024) }),
     response(
       new ReadableStream({
@@ -159,4 +158,30 @@ test('image concurrency, count, disposal and timeout are bounded', async () => {
   await tick()
   assert.equal(errors.at(-1), 'Image request timed out')
   assert.equal(t.timers.size, 0)
+})
+
+test('preview loading preserves MIME types without filtering formats before image decoding', async () => {
+  for (const type of [
+    'image/bmp',
+    'image/svg+xml; charset=utf-8',
+    'application/octet-stream',
+    'text/html',
+    null,
+  ]) {
+    const payload = '<svg xmlns="http://www.w3.org/2000/svg"/>'
+    const s = setup(
+      async () =>
+        new Response(new Blob([payload]), {
+          headers: type === null ? {} : { 'content-type': type },
+        }),
+    )
+    const ready = await new Promise((resolve, reject) => {
+      s.batch.load('https://example.com/image', resolve, reject)
+    })
+    assert.equal(ready, 'blob:1')
+    assert.equal(s.created[0].type, (type || '').split(';')[0])
+    assert.equal(await s.created[0].text(), payload)
+    s.batch.dispose()
+    assert.deepEqual(s.revoked, ['blob:1'])
+  }
 })

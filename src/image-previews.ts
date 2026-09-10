@@ -3,13 +3,6 @@ const ImagePreviews = (() => {
   const MAX_IMAGES = 6
   const MAX_BYTES = 5 * 1024 * 1024
   const TIMEOUT_MS = 8000
-  const TYPES = new Set([
-    'image/png',
-    'image/jpeg',
-    'image/gif',
-    'image/webp',
-    'image/avif',
-  ])
   const createBatch = () => {
     let disposed = false
     let count = 0
@@ -50,13 +43,14 @@ const ImagePreviews = (() => {
         if (!response.ok) {
           throw new Error('Image request failed')
         }
+        // Preserve the response MIME type for decoding (notably SVG), but let
+        // Chrome's <img> decoder decide whether the bytes are a supported image.
+        // These Blob URLs must only be embedded as images, never as documents
+        // or inline markup; image decoding failures are handled by the UI.
         const type = (response.headers.get('content-type') || '')
           .split(';')[0]
           .trim()
           .toLowerCase()
-        if (!TYPES.has(type)) {
-          throw new Error('Unsupported image format')
-        }
         if (Number(response.headers.get('content-length')) > MAX_BYTES) {
           throw new Error('Image is too large')
         }

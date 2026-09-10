@@ -327,26 +327,20 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
     },
   })
   assert.equal(elements.get('entryList').children.length, 1)
-  const nodes = [{ open: true }, { open: true }]
+  const selected = { open: true }
   const treeView = elements.get('treeView')
-  treeView.querySelectorAll = () => nodes
+  treeView.querySelector = () => selected
   treeView.listeners.toggle()
   assert.equal(elements.get('toggleTreeButton').textContent, 'Collapse')
   elements.get('toggleTreeButton').listeners.click()
-  assert.equal(
-    nodes.every((node) => !node.open),
-    true,
-  )
+  assert.equal(selected.open, false)
   assert.equal(elements.get('toggleTreeButton').textContent, 'Expand')
   elements.get('toggleTreeButton').listeners.click()
-  assert.equal(
-    nodes.every((node) => node.open),
-    true,
-  )
-  nodes[1].open = false
+  assert.equal(selected.open, true)
+  selected.open = false
   treeView.listeners.toggle()
   assert.equal(elements.get('toggleTreeButton').textContent, 'Expand')
-  treeView.querySelectorAll = () => []
+  treeView.querySelector = () => null
   treeView.listeners.toggle()
   assert.equal(elements.get('toggleTreeButton').disabled, true)
 

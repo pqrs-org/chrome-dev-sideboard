@@ -2,20 +2,34 @@ import { SidepanelState } from './sidepanel-state.js'
 
 const { panelElements, panelState, FILTER_DEBOUNCE_MS } = SidepanelState
 
+// Timeout ID for the pending JSON filter update. Each keystroke cancels the
+// previous timeout, so filtering and rendering run only after input pauses
+// for FILTER_DEBOUNCE_MS instead of rebuilding the tree on every keystroke.
 let jsonFilterTimer = 0
 
+const selectedTreeNode = () =>
+  panelElements.treeView.querySelector<HTMLDetailsElement>(
+    'details.tree-selected',
+  )
+
 const renderTreeActionButtons = () => {
-  const nodes = [...panelElements.treeView.querySelectorAll('details')]
-  panelElements.toggleTreeButton.disabled = nodes.length === 0
-  panelElements.toggleTreeButton.textContent = nodes.some((node) => !node.open)
-    ? 'Expand'
-    : 'Collapse'
+  const selected = selectedTreeNode()
+  panelElements.toggleTreeButton.disabled = !selected
+  panelElements.toggleTreeButton.textContent =
+    selected && !selected.open ? 'Expand' : 'Collapse'
 }
 
-const setTreeOpen = (open: boolean) => {
-  for (const details of panelElements.treeView.querySelectorAll('details')) {
-    details.open = open
+const selectTreeNode = (selected: HTMLElement) => {
+  const previous = panelElements.treeView.querySelector('.tree-selected')
+  previous?.classList.toggle('tree-selected', false)
+  if (previous) {
+    const label = previous.querySelector('summary') || previous
+    label.setAttribute('aria-current', 'false')
   }
+  selected.classList.toggle('tree-selected', true)
+  const label = selected.querySelector('summary') || selected
+  label.setAttribute('aria-current', 'true')
+  renderTreeActionButtons()
 }
 
 const renderFilteredJson = (value: unknown, key: string) => {
@@ -30,6 +44,12 @@ const renderFilteredJson = (value: unknown, key: string) => {
   panelElements.treeView.replaceChildren(
     tree || emptyState('No matching JSON keys or values.'),
   )
+  const root = panelElements.treeView.querySelector('details')
+  if (root) {
+    selectTreeNode(root)
+  } else {
+    renderTreeActionButtons()
+  }
 }
 
 const renderJsonTree = (
@@ -84,7 +104,12 @@ const renderJsonTree = (
   details.open = true
 
   const summary = document.createElement('summary')
-  summary.append(
+  const arrow = document.createElement('span')
+  arrow.className = 'tree-toggle'
+  arrow.setAttribute('aria-hidden', 'true')
+  const label = document.createElement('span')
+  label.className = 'tree-summary-label'
+  label.append(
     renderKey(key),
     document.createTextNode(
       Array.isArray(value)
@@ -92,6 +117,16 @@ const renderJsonTree = (
         : `: Object(${Object.keys(value).length})`,
     ),
   )
+  summary.append(arrow, label)
+  // Keep native keyboard toggling, but reserve pointer toggling for the arrow
+  // so clicking or selecting the label does not collapse the node.
+  summary.addEventListener('focus', () => selectTreeNode(details))
+  summary.addEventListener('click', (event) => {
+    selectTreeNode(details)
+    if (event.detail !== 0 && event.target !== arrow) {
+      event.preventDefault()
+    }
+  })
   details.append(summary)
 
   const container = document.createElement('div')
@@ -152,6 +187,7 @@ const parseMaybeJson = (value: unknown) => {
 const renderPrimitiveStorage = (value: unknown, key: string) => {
   const row = document.createElement('div')
   row.className = 'tree-row'
+  row.addEventListener('click', () => selectTreeNode(row))
   row.append(
     renderKey(key),
     document.createTextNode(': '),
@@ -172,8 +208,10 @@ const initializeJsonViewer = (renderDetail: () => void) => {
   })
 
   panelElements.toggleTreeButton.addEventListener('click', () => {
-    const nodes = [...panelElements.treeView.querySelectorAll('details')]
-    setTreeOpen(nodes.some((node) => !node.open))
+    const selected = selectedTreeNode()
+    if (selected) {
+      selected.open = !selected.open
+    }
     renderTreeActionButtons()
   })
 

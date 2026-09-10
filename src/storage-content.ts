@@ -59,7 +59,7 @@ chrome.runtime.onMessage.addListener(
     }
 
     // Storage APIs must be read in the page's content-script context for the
-    // active tab; the panel asks the background worker, which forwards here.
+    // active tab; the side panel sends its request directly here.
     sendResponse(readStorageSnapshot())
     return true
   },

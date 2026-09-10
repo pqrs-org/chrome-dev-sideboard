@@ -1,3 +1,4 @@
+import { SidepanelPageAccess } from './sidepanel-page-access.js'
 import { SidepanelState } from './sidepanel-state.js'
 import { SidepanelJson } from './sidepanel-json.js'
 import { SidepanelStorage } from './sidepanel-storage.js'
@@ -5,61 +6,6 @@ import { SidepanelEditor } from './sidepanel-editor.js'
 import { SidepanelMetadata } from './sidepanel-metadata.js'
 
 const { panelState, snapshotState, panelElements, editState } = SidepanelState
-
-const PANEL_PORT_NAME = 'dev-sideboard:panel'
-
-let port: chrome.runtime.Port
-
-const postPanelRequest = (message: PanelRequest) => port.postMessage(message)
-
-const connectPanel = () => {
-  port = chrome.runtime.connect({ name: PANEL_PORT_NAME })
-  port.onMessage.addListener(handlePanelMessage)
-  port.onDisconnect.addListener(() =>
-    window.setTimeout(() => {
-      connectPanel()
-      if (typeof panelState.tabId === 'number') {
-        postPanelRequest({
-          type: 'init',
-          tabId: panelState.tabId,
-        })
-        snapshotState.pendingUntil = 0
-        requestSnapshot()
-      }
-    }, 250),
-  )
-}
-
-const handlePanelMessage = (message: PanelMessage) => {
-  if (message.type === 'metadataChanged') {
-    if (message.tabId === panelState.tabId && panelState.mode === 'metadata') {
-      snapshotState.pendingUntil = 0
-      requestSnapshot()
-    }
-    return
-  }
-  if (message.type === 'metadataSnapshot') {
-    if (
-      message.tabId !== panelState.tabId ||
-      message.requestId !== snapshotState.requestId
-    ) {
-      return
-    }
-    snapshotState.pendingUntil = 0
-    if (
-      JSON.stringify(panelState.metadata) !== JSON.stringify(message.snapshot)
-    ) {
-      panelState.metadata = message.snapshot
-      SidepanelMetadata.renderMetadata()
-    }
-    return
-  }
-  if (message.type === 'storageSaved') {
-    SidepanelEditor.handleStorageSaved(message)
-  } else if (message.type === 'storageSnapshot') {
-    SidepanelStorage.handleStorageSnapshot(message)
-  }
-}
 
 const selectMode = (mode: typeof panelState.mode) => {
   panelState.mode = mode
@@ -134,7 +80,6 @@ const selectCurrentTab = async () => {
   panelState.metadata = null
   panelState.storage = SidepanelStorage.normalizeStorageSnapshot(null)
   renderTabs()
-  postPanelRequest({ type: 'init', tabId })
   requestSnapshot()
 }
 
@@ -157,21 +102,37 @@ const renderTabs = () => {
   SidepanelStorage.renderDetail()
 }
 
-const requestSnapshot = () => {
+const requestSnapshot = async () => {
+  const tabId = panelState.tabId
   if (
-    typeof panelState.tabId === 'number' &&
-    !editState.current &&
-    Date.now() >= snapshotState.pendingUntil
+    typeof tabId !== 'number' ||
+    editState.current ||
+    Date.now() < snapshotState.pendingUntil
   ) {
-    snapshotState.pendingUntil = Date.now() + 5000
-    try {
-      postPanelRequest({
-        type: panelState.mode === 'metadata' ? 'getMetadata' : 'getStorage',
-        requestId: ++snapshotState.requestId,
-      })
-    } catch {
-      snapshotState.pendingUntil = 0
+    return
+  }
+  snapshotState.pendingUntil = Date.now() + 5000
+  const requestId = ++snapshotState.requestId
+  const isCurrent = () =>
+    tabId === panelState.tabId && requestId === snapshotState.requestId
+
+  if (panelState.mode === 'metadata') {
+    const snapshot = await SidepanelPageAccess.readMetadata(tabId)
+    if (!isCurrent()) {
+      return
     }
+    snapshotState.pendingUntil = 0
+    if (JSON.stringify(panelState.metadata) !== JSON.stringify(snapshot)) {
+      panelState.metadata = snapshot
+      SidepanelMetadata.renderMetadata()
+    }
+  } else {
+    const snapshot = await SidepanelPageAccess.readStorage(tabId)
+    if (!isCurrent()) {
+      return
+    }
+    snapshotState.pendingUntil = 0
+    SidepanelStorage.applyStorageSnapshot(snapshot)
   }
 }
 
@@ -182,9 +143,14 @@ const start = () => {
   SidepanelStorage.initializeStorageList(renderTabs)
   SidepanelEditor.initializeStorageEditor({
     render: renderTabs,
-    postRequest: postPanelRequest,
   })
-  connectPanel()
+  const stopObserving = SidepanelPageAccess.observeMetadataChanges((tabId) => {
+    if (tabId === panelState.tabId && panelState.mode === 'metadata') {
+      snapshotState.pendingUntil = 0
+      requestSnapshot()
+    }
+  })
+  window.addEventListener('pagehide', stopObserving, { once: true })
 
   panelElements.metadataModeButton.addEventListener('click', () =>
     selectMode('metadata'),
@@ -215,6 +181,6 @@ const start = () => {
   }, 1000)
 }
 
-export const SidepanelTabs = { renderTabs, postPanelRequest, start }
+export const SidepanelTabs = { start }
 
 SidepanelTabs.start()

@@ -40,17 +40,15 @@ class Element {
 test('side panel tabs open Page, reject stale metadata, refresh scoped data, filter values, and edit Storage and Cookies', async () => {
   const elements = new Map()
   const sent = []
-  let receive
   let activated
-  const port = {
-    postMessage: (m) => sent.push(m),
-    onMessage: {
-      addListener: (fn) => {
-        receive = fn
-      },
-    },
-    onDisconnect: { addListener() {} },
+  let activeTabId = 1
+  let metadataChanged
+  const pending = []
+  const queueOperation = (tabId, request) => {
+    sent.push(request)
+    return new Promise((resolve) => pending.push({ tabId, request, resolve }))
   }
+  let savedCookieSnapshot
   const queries = []
   let poll
   runModule(
@@ -78,12 +76,21 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
         clearTimeout() {},
       },
       chrome: {
-        runtime: { connect: () => port },
+        webNavigation: { getFrame: async () => ({ documentId: 'doc-1' }) },
         windows: { getCurrent: async () => ({ id: 7 }) },
         tabs: {
+          sendMessage: (tabId, message, target) =>
+            queueOperation(tabId, {
+              ...message,
+              documentId: target.documentId,
+              type:
+                message.type === 'dev-sideboard:set-storage'
+                  ? 'setStorage'
+                  : 'deleteStorage',
+            }),
           query: async (q) => {
             queries.push(q)
-            return [{ id: 1 }]
+            return [{ id: activeTabId }]
           },
           onActivated: {
             addListener: (fn) => {
@@ -97,6 +104,33 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
       },
     },
     {
+      './sidepanel-page-access.js': {
+        SidepanelPageAccess: {
+          readMetadata: (tabId) =>
+            queueOperation(tabId, { type: 'getMetadata' }),
+          readStorage: (tabId) => queueOperation(tabId, { type: 'getStorage' }),
+          observeMetadataChanges(callback) {
+            metadataChanged = callback
+            return () => {}
+          },
+        },
+      },
+      './cookie-store.js': {
+        ExtensionCookies: {
+          ...require('../.test-build/src/cookie-store.js').ExtensionCookies,
+          write: async (tabId, edit, deleting) => {
+            const result = await queueOperation(tabId, {
+              ...edit,
+              type: deleting ? 'deleteStorage' : 'setStorage',
+            })
+            if (!result.ok) {
+              throw new Error(result.error)
+            }
+            savedCookieSnapshot = result.snapshot
+          },
+          read: async () => savedCookieSnapshot,
+        },
+      },
       './image-previews.js': {
         ImagePreviews: {
           createBatch: () => ({
@@ -109,33 +143,45 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
       },
     },
   )
+  const receive = async (message) => {
+    await tick()
+    if (message.type === 'metadataChanged') {
+      metadataChanged(message.tabId)
+    } else {
+      const expectedType =
+        message.type === 'metadataSnapshot'
+          ? 'getMetadata'
+          : message.type === 'storageSnapshot'
+            ? 'getStorage'
+            : sent.at(-1).type
+      let index = pending.findLastIndex(
+        (item) => item.request.type === expectedType,
+      )
+      if (index < 0) {
+        if (expectedType === 'getMetadata') {
+          metadataChanged(activeTabId)
+        } else {
+          poll()
+        }
+        index = pending.findLastIndex(
+          (item) => item.request.type === expectedType,
+        )
+      }
+      assert.ok(index >= 0, 'a request is pending for the simulated result')
+      const item = pending.splice(index, 1)[0]
+      item.resolve(
+        message.type === 'storageSaved'
+          ? { ok: message.ok, error: message.error, snapshot: message.snapshot }
+          : message.snapshot,
+      )
+    }
+    await tick()
+  }
   await tick()
   assert.equal(sent.at(-1).type, 'getMetadata')
-  const requestId = sent.at(-1).requestId
-  receive({
-    type: 'metadataSnapshot',
-    tabId: 2,
-    requestId,
-    snapshot: { error: 'wrong tab' },
-  })
-  assert.notEqual(
-    elements.get('metadataView').children[0].textContent,
-    'wrong tab',
-  )
-  receive({
+  await receive({
     type: 'metadataSnapshot',
     tabId: 1,
-    requestId: requestId - 1,
-    snapshot: { error: 'old response' },
-  })
-  assert.notEqual(
-    elements.get('metadataView').children[0].textContent,
-    'old response',
-  )
-  receive({
-    type: 'metadataSnapshot',
-    tabId: 1,
-    requestId,
     snapshot: {
       canonical: [{ key: 'Canonical URL', value: 'https://example.com/' }],
       openGraph: [
@@ -167,10 +213,9 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
     elements.get('metadataView').children[4].textContent,
     'Open Graph',
   )
-  receive({
+  await receive({
     type: 'metadataSnapshot',
     tabId: 1,
-    requestId,
     snapshot: {
       openGraph: [],
       twitter: [{ key: 'twitter:title', value: 'Twitter title' }],
@@ -188,14 +233,13 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
   const beforeMetadataPoll = sent.length
   poll()
   assert.equal(sent.length, beforeMetadataPoll, 'Page does not poll')
-  receive({ type: 'metadataChanged', tabId: 2 })
+  await receive({ type: 'metadataChanged', tabId: 2 })
   assert.equal(sent.length, beforeMetadataPoll)
-  receive({ type: 'metadataChanged', tabId: 1 })
+  await receive({ type: 'metadataChanged', tabId: 1 })
   assert.equal(sent.at(-1).type, 'getMetadata')
-  receive({
+  await receive({
     type: 'metadataSnapshot',
     tabId: 1,
-    requestId: sent.at(-1).requestId,
     snapshot: {
       baseUrl: 'https://example.com/base/',
       openGraph: [
@@ -221,7 +265,7 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
   )
   activated({ windowId: 8 })
   assert.equal(queries.length, 1)
-  receive({
+  await receive({
     type: 'storageSnapshot',
     tabId: 1,
     snapshot: {
@@ -266,7 +310,7 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
   assert.equal(elements.get('entryList').children.length, 0)
   elements.get('filterInput').value = ''
   elements.get('filterInput').listeners.input()
-  receive({
+  await receive({
     type: 'storageSnapshot',
     tabId: 1,
     snapshot: {
@@ -283,11 +327,11 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
   elements.get('editStorageButton').listeners.click()
   elements.get('storageValueInput').value = ' text\nvalue '
   elements.get('saveStorageEdit').listeners.click()
+  await tick()
   assert.equal(sent.at(-1).value, ' text\nvalue ')
-  receive({
+  await receive({
     type: 'storageSaved',
     tabId: 1,
-    requestId: sent.at(-1).requestId,
     ok: true,
     snapshot: {
       documentId: 'doc-1',
@@ -301,7 +345,7 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
   assert.equal(sent.at(-1).type, 'getStorage')
   poll()
   assert.equal(sent.length, beforePoll + 1)
-  receive({
+  await receive({
     type: 'storageSnapshot',
     tabId: 1,
     snapshot: {
@@ -317,17 +361,18 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
   assert.equal(sent.length, beforeEditPoll)
   elements.get('storageValueInput').value = '{'
   elements.get('saveStorageEdit').listeners.click()
+  await tick()
   assert.match(elements.get('storageEditStatus').textContent, /Invalid JSON/)
   assert.notEqual(sent.at(-1).type, 'setStorage')
   elements.get('storageValueInput').value = '{"enabled":true}'
   elements.get('saveStorageEdit').listeners.click()
+  await tick()
   assert.equal(sent.at(-1).type, 'setStorage')
   assert.equal(sent.at(-1).documentId, 'doc-1')
   assert.equal(sent.at(-1).expectedValue, '{"enabled":false}')
-  receive({
+  await receive({
     type: 'storageSaved',
     tabId: 1,
-    requestId: sent.at(-1).requestId,
     ok: false,
     error: 'Value changed',
   })
@@ -335,10 +380,10 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
   assert.equal(elements.get('storageValueInput').value, '{"enabled":true}')
   assert.equal(elements.get('saveStorageEdit').disabled, false)
   elements.get('saveStorageEdit').listeners.click()
-  receive({
+  await tick()
+  await receive({
     type: 'storageSaved',
     tabId: 1,
-    requestId: sent.at(-1).requestId,
     ok: true,
     snapshot: {
       documentId: 'doc-1',
@@ -366,7 +411,7 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
     sameSite: 'lax',
     session: true,
   }
-  receive({
+  await receive({
     type: 'storageSnapshot',
     tabId: 1,
     snapshot: {
@@ -384,6 +429,7 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
   assert.equal(elements.get('storageValueInput').value, 'raw-token')
   elements.get('storageValueInput').value = 'new-token'
   elements.get('saveStorageEdit').listeners.click()
+  await tick()
   assert.equal(sent.at(-1).area, 'cookie')
   assert.equal(sent.at(-1).value, 'new-token')
   assert.equal(
@@ -392,10 +438,9 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
       cookie,
     ),
   )
-  receive({
+  await receive({
     type: 'storageSaved',
     tabId: 1,
-    requestId: sent.at(-1).requestId,
     ok: true,
     snapshot: {
       documentId: 'doc-1',
@@ -405,26 +450,40 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
     },
   })
   elements.get('deleteStorageButton').listeners.click()
+  await tick()
   assert.equal(sent.at(-1).type, 'deleteStorage')
   assert.equal(sent.at(-1).area, 'cookie')
   assert.equal(elements.get('deleteStorageButton').disabled, true)
-  receive({
+  await receive({
     type: 'storageSaved',
     tabId: 1,
-    requestId: sent.at(-1).requestId,
     ok: false,
     error: 'Cookie changed',
   })
   assert.equal(elements.get('deleteStorageButton').disabled, false)
   assert.equal(elements.get('detailMeta').textContent, 'Cookie changed')
   elements.get('deleteStorageButton').listeners.click()
-  receive({
+  await tick()
+  await receive({
     type: 'storageSaved',
     tabId: 1,
-    requestId: sent.at(-1).requestId,
     ok: true,
     snapshot: { documentId: 'doc-1', local: [], session: [], cookies: [] },
   })
   assert.equal(elements.get('deleteStorageButton').disabled, true)
+  assert.equal(elements.get('entryList').children.length, 0)
+  elements.get('storageModeButton').listeners.click()
+  const previous = pending.pop()
+  activeTabId = 2
+  activated({ windowId: 7 })
+  await tick()
+  activeTabId = 1
+  activated({ windowId: 7 })
+  await tick()
+  previous.resolve({
+    documentId: 'old-doc',
+    local: [{ key: 'stale', value: 'private' }],
+  })
+  await tick()
   assert.equal(elements.get('entryList').children.length, 0)
 })

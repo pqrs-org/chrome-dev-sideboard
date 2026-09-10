@@ -39,11 +39,10 @@ const worker = (stored) => {
       ].map((name) => [name, event()]),
     ),
   }
-  runModule(
-    require.resolve('../.test-build/src/background.js'),
-    { chrome: api, console },
-    { './storage-background.js': {} },
-  )
+  runModule(require.resolve('../.test-build/src/background.js'), {
+    chrome: api,
+    console,
+  })
   return api
 }
 

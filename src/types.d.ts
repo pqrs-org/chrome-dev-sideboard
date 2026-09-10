@@ -100,32 +100,6 @@ interface MetadataSnapshot {
   baseUrl?: string
   error?: string
 }
-type PanelMessage =
-  | { type: 'metadataChanged'; tabId: number }
-  | {
-      type: 'metadataSnapshot'
-      tabId: number
-      requestId: number
-      snapshot: MetadataSnapshot
-    }
-  | {
-      type: 'storageSnapshot'
-      tabId: number
-      requestId?: number
-      snapshot: StorageSnapshot
-    }
-  | {
-      type: 'storageSaved'
-      tabId: number
-      requestId?: number
-      ok: boolean
-      error?: string
-      snapshot?: StorageSnapshot
-    }
-type PanelRequest =
-  | { type: 'init'; tabId: number }
-  | { type: 'getStorage' | 'getMetadata'; requestId: number }
-  | (StorageEdit & { type: 'setStorage' | 'deleteStorage' })
 interface ImageJob {
   url: string
   ready: (url: string) => void
@@ -144,11 +118,6 @@ type DisplayStorageEntry =
       searchText: string
       expectedCookie: string
     })
-interface PanelClient {
-  port: chrome.runtime.Port
-  tabId: number | null
-  version: number
-}
 interface StorageResult {
   ok: boolean
   error?: string

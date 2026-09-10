@@ -2,13 +2,8 @@ import { SidepanelState } from './sidepanel-state.js'
 import { SidepanelJson } from './sidepanel-json.js'
 import { ExtensionCookies } from './cookie-store.js'
 
-const {
-  panelState,
-  editState,
-  panelElements,
-  snapshotState,
-  FILTER_DEBOUNCE_MS,
-} = SidepanelState
+const { panelState, editState, panelElements, FILTER_DEBOUNCE_MS } =
+  SidepanelState
 
 let renderPanel: () => void
 
@@ -259,24 +254,11 @@ const compactValue = (value: unknown) => {
   return text.length > 48 ? `${text.slice(0, 48)}...` : text
 }
 
-const handleStorageSnapshot = (
-  message: Extract<PanelMessage, { type: 'storageSnapshot' }>,
-) => {
-  if (message.tabId !== panelState.tabId) {
-    return
-  }
-
-  if (
-    message.requestId !== undefined &&
-    message.requestId !== snapshotState.requestId
-  ) {
-    return
-  }
-  snapshotState.pendingUntil = 0
+const applyStorageSnapshot = (snapshot: StorageSnapshot) => {
   if (editState.current) {
     return
   }
-  const nextStorage = normalizeStorageSnapshot(message.snapshot)
+  const nextStorage = normalizeStorageSnapshot(snapshot)
   const { timestamp: _oldTime, ...oldValues } = panelState.storage
   const { timestamp: _newTime, ...newValues } = nextStorage
   if (JSON.stringify(oldValues) === JSON.stringify(newValues)) {
@@ -312,7 +294,7 @@ export const SidepanelStorage = {
   getSelectedStorageEntry,
   getStorageEntries,
   renderModeChrome,
-  handleStorageSnapshot,
+  applyStorageSnapshot,
   renderList,
   initializeStorageList,
 }

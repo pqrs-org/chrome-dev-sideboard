@@ -1,5 +1,4 @@
 import { PageNetworkStats } from './network-stats.js'
-import './storage-background.js'
 
 chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })

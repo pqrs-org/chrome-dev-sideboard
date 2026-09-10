@@ -21,6 +21,7 @@ const setup = (area = 'local') => {
   )
   const state = {
     editState: { current: null },
+    snapshotState: { requestId: 0, pendingUntil: 0 },
     panelElements: elements,
     panelState: { tabId: 1, storage: { documentId: 'doc-1', local: [] } },
   }
@@ -61,7 +62,7 @@ const setup = (area = 'local') => {
       },
     },
   )
-  SidepanelEditor.initializeStorageEditor({ render() {} })
+  SidepanelEditor.initializeStorageEditor()
   return {
     elements,
     state,
@@ -81,6 +82,8 @@ test('editor pins storage writes to the inspected document and rejects navigatio
   s.elements.storageValueInput.value = 'new'
   s.elements.saveStorageEdit.click()
   await tick()
+  assert.equal(s.state.snapshotState.requestId, 1)
+  assert.equal(s.state.panelState.storage.local.length, 0)
   assert.equal(s.sent[0][0], 1)
   assert.equal(s.sent[0][2].documentId, 'doc-1')
   assert.equal(s.sent[0][1].type, 'dev-sideboard:set-storage')

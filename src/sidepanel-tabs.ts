@@ -141,9 +141,7 @@ const start = () => {
   SidepanelMetadata.initializeMetadata()
   SidepanelJson.initializeJsonViewer(SidepanelStorage.renderDetail)
   SidepanelStorage.initializeStorageList(renderTabs)
-  SidepanelEditor.initializeStorageEditor({
-    render: renderTabs,
-  })
+  SidepanelEditor.initializeStorageEditor()
   const stopObserving = SidepanelPageAccess.observeMetadataChanges((tabId) => {
     if (tabId === panelState.tabId && panelState.mode === 'metadata') {
       snapshotState.pendingUntil = 0

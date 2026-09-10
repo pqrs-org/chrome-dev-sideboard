@@ -2,21 +2,14 @@ import { ExtensionCookies } from './cookie-store.js'
 import { SidepanelState } from './sidepanel-state.js'
 import { SidepanelStorage } from './sidepanel-storage.js'
 
-const { editState, panelElements, panelState } = SidepanelState
-
-// Supplied by sidepanel-tabs during initialization to avoid a circular import
-// between the tab controller and this editor.
-let editorCallbacks: {
-  // Refresh the list and detail views after a save or delete result.
-  render: () => void
-}
+const { editState, panelElements, panelState, snapshotState } = SidepanelState
 
 // Assign a new requestId whenever a save or delete request is sent.
 // Matching replies against the current edit prevents delayed replies from
 // an earlier operation from closing or updating a newer edit.
 let editRequestSequence = 0
 
-const handleStorageSaved = (edit: StorageEdit, result: StorageResult) => {
+const handleSaveOrDeleteResult = (edit: StorageEdit, result: StorageResult) => {
   if (
     !editState.current ||
     edit.tabId !== editState.current.tabId ||
@@ -29,7 +22,7 @@ const handleStorageSaved = (edit: StorageEdit, result: StorageResult) => {
   panelElements.storageValueInput.disabled = false
   if (!result.ok && editState.current.deleting) {
     editState.current = null
-    editorCallbacks.render()
+    SidepanelStorage.renderModeChrome()
     panelElements.detailMeta.textContent = result.error || 'Unable to delete.'
     return
   }
@@ -38,17 +31,16 @@ const handleStorageSaved = (edit: StorageEdit, result: StorageResult) => {
       result.error || 'Unable to save.'
     return
   }
-  panelState.storage = SidepanelStorage.normalizeStorageSnapshot(
-    result.snapshot,
-  )
   editState.current = null
   panelElements.storageEditor.close()
-  if (!SidepanelStorage.getSelectedStorageEntry()) {
-    panelState.selectedStorageId =
-      SidepanelStorage.getStorageEntries().at(0)?.id || null
+  // Let the next periodic read refresh the list. Discard reads started before
+  // this write so their old values cannot replace the next snapshot.
+  snapshotState.requestId++
+  snapshotState.pendingUntil = 0
+  SidepanelStorage.renderModeChrome()
+  if (edit.deleting) {
+    panelElements.detailMeta.textContent = 'Deleted.'
   }
-  editorCallbacks.render()
-  return
 }
 
 // Keep edits tied to the document shown when the editor opened, even if the
@@ -60,7 +52,7 @@ const assertEditDocument = async (tabId: number, documentId: string) => {
   }
 }
 
-const executeStorageEdit = async (edit: StorageEdit, value?: string) => {
+const saveOrDelete = async (edit: StorageEdit, value?: string) => {
   const tabId = edit.tabId
   if (typeof tabId !== 'number') {
     return
@@ -71,18 +63,7 @@ const executeStorageEdit = async (edit: StorageEdit, value?: string) => {
     if (edit.area === 'cookie') {
       // cookie-store checks the original value and attributes before writing.
       await ExtensionCookies.write(tabId, { ...edit, value }, edit.deleting)
-      const snapshot = await ExtensionCookies.read(tabId)
-      if (snapshot.documentId !== edit.documentId) {
-        throw new Error('The page changed. Refresh cookies and edit again.')
-      }
-      result = {
-        ok: true,
-        snapshot: {
-          ...panelState.storage,
-          cookies: snapshot.cookies,
-          cookieError: '',
-        },
-      }
+      result = { ok: true }
     } else {
       // The content script checks expectedValue in the target page immediately
       // before writing; documentId prevents delivery to a replacement document.
@@ -101,9 +82,6 @@ const executeStorageEdit = async (edit: StorageEdit, value?: string) => {
       )
     }
     await assertEditDocument(tabId, edit.documentId)
-    if (result.snapshot) {
-      result.snapshot = { ...result.snapshot, documentId: edit.documentId }
-    }
   } catch (error) {
     result = {
       ok: false,
@@ -113,11 +91,10 @@ const executeStorageEdit = async (edit: StorageEdit, value?: string) => {
           : String(error),
     }
   }
-  handleStorageSaved(edit, result)
+  handleSaveOrDeleteResult(edit, result)
 }
 
-const initializeStorageEditor = (callbacks: typeof editorCallbacks) => {
-  editorCallbacks = callbacks
+const initializeStorageEditor = () => {
   panelElements.deleteStorageButton.addEventListener('click', () => {
     const entry = SidepanelStorage.getSelectedStorageEntry()
     if (!entry || !panelState.storage.documentId || editState.current) {
@@ -136,7 +113,7 @@ const initializeStorageEditor = (callbacks: typeof editorCallbacks) => {
     }
     SidepanelStorage.renderModeChrome()
     panelElements.detailMeta.textContent = 'Deleting…'
-    executeStorageEdit({ ...editState.current })
+    saveOrDelete({ ...editState.current })
   })
 
   panelElements.editStorageButton.addEventListener('click', () => {
@@ -208,7 +185,7 @@ const initializeStorageEditor = (callbacks: typeof editorCallbacks) => {
     panelElements.cancelStorageEdit.disabled = true
     panelElements.storageValueInput.disabled = true
     panelElements.storageEditStatus.textContent = 'Saving…'
-    executeStorageEdit({ ...editState.current }, value)
+    saveOrDelete({ ...editState.current }, value)
   })
 }
 

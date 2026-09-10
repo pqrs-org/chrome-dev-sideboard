@@ -42,7 +42,7 @@ chrome.runtime.onMessage.addListener(
         } else if (typeof message.value === 'string') {
           storage.setItem(message.key, message.value)
         }
-        sendResponse({ ok: true, snapshot: readStorageSnapshot() })
+        sendResponse({ ok: true })
       } catch (error) {
         sendResponse({
           ok: false,

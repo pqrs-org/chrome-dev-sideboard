@@ -48,7 +48,6 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
     sent.push(request)
     return new Promise((resolve) => pending.push({ tabId, request, resolve }))
   }
-  let savedCookieSnapshot
   const queries = []
   let poll
   runModule(
@@ -126,9 +125,7 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
             if (!result.ok) {
               throw new Error(result.error)
             }
-            savedCookieSnapshot = result.snapshot
           },
-          read: async () => savedCookieSnapshot,
         },
       },
       './image-previews.js': {
@@ -171,11 +168,16 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
       const item = pending.splice(index, 1)[0]
       item.resolve(
         message.type === 'storageSaved'
-          ? { ok: message.ok, error: message.error, snapshot: message.snapshot }
+          ? { ok: message.ok, error: message.error }
           : message.snapshot,
       )
     }
     await tick()
+    if (message.type === 'storageSaved' && message.ok) {
+      // A write only closes the editor; the next periodic read updates the view.
+      poll()
+      await receive({ type: 'storageSnapshot', snapshot: message.snapshot })
+    }
   }
   await tick()
   assert.equal(sent.at(-1).type, 'getMetadata')

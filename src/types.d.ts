@@ -121,7 +121,6 @@ type DisplayStorageEntry =
 interface StorageResult {
   ok: boolean
   error?: string
-  snapshot?: StorageSnapshot
 }
 // Storage edit fields are checked at runtime before accessing website storage.
 type ContentRequest =

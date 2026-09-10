@@ -82,7 +82,8 @@
             Resets on reload or a new document. SPA navigation keeps the same
             totals. Durations cover completed request chains, including
             redirects, download time, and authentication waits; failed requests
-            are excluded.
+            are excluded. Cache misses, cancellations, and context shutdowns are
+            excluded from Failures.
           </p>
           <p class="hint">
             Sizes total available Content-Length values from final, completed,

@@ -187,3 +187,74 @@ test('failure details retain sanitized final URLs and codes, cap history, and re
   t.send('start', { requestId: 'new-page' })
   assert.deepEqual(t.state.failureDetails, [])
 })
+
+for (const error of [
+  'net::ERR_CACHE_MISS',
+  'net::ERR_ABORTED',
+  'net::ERR_CONTEXT_SHUT_DOWN',
+]) {
+  test(`${error} finishes tracking without failure or success metrics, while retries and other errors are counted`, () => {
+    const t = tracker()
+    t.send('start', { type: 'font' })
+    t.send('headers', { responseHeaders: [header('Content-Length', '999')] })
+    t.send('error', {
+      error,
+      statusCode: 404,
+      timeStamp: 1100,
+    })
+    assert.equal(t.state.requests, 1)
+    assert.deepEqual(t.state.pending, {})
+    assert.equal(t.state.networkErrors, 0)
+    assert.equal(t.state.httpErrors, 0)
+    assert.deepEqual(t.state.failureDetails, [])
+    assert.equal(t.state.completed, 0)
+    assert.equal(t.state.cached, 0)
+    assert.equal(t.state.durationCount, 0)
+    assert.equal(t.state.knownBytes, 0)
+    assert.equal(t.state.knownSizes, 0)
+    assert.equal(t.state.unknownSizes, 0)
+
+    t.send('complete', { statusCode: 200 })
+    assert.equal(t.state.completed, 0)
+    t.send('start', { type: 'font', requestId: 'retry', timeStamp: 1200 })
+    t.send('complete', { requestId: 'retry', statusCode: 200, timeStamp: 1300 })
+    assert.equal(t.state.requests, 2)
+    assert.equal(t.state.completed, 1)
+    assert.equal(t.state.durationTotal, 100)
+
+    t.send('start', { type: 'font', requestId: 'failure' })
+    t.send('error', {
+      requestId: 'failure',
+      error: 'net::ERR_CACHE_READ_FAILURE',
+    })
+    assert.equal(t.state.networkErrors, 1)
+    assert.equal(t.state.failureDetails.length, 1)
+    assert.equal(
+      t.state.failureDetails[0].reason,
+      'net::ERR_CACHE_READ_FAILURE',
+    )
+    assert.deepEqual(t.state.pending, {})
+  })
+}
+
+test('connection aborts, blocking, and resource failures remain visible', () => {
+  const t = tracker()
+  const errors = [
+    'net::ERR_CONNECTION_ABORTED',
+    'net::ERR_BLOCKED_BY_CLIENT',
+    'net::ERR_BLOCKED_BY_ADMINISTRATOR',
+    'net::ERR_INSUFFICIENT_RESOURCES',
+    'net::ERR_OUT_OF_MEMORY',
+    'net::ERR_CACHE_WRITE_FAILURE',
+  ]
+  for (const error of errors) {
+    t.send('start', { type: 'image', requestId: error })
+    t.send('error', { requestId: error, error })
+  }
+  assert.equal(t.state.networkErrors, errors.length)
+  assert.deepEqual(
+    t.state.failureDetails.map((item) => item.reason),
+    errors,
+  )
+  assert.deepEqual(t.state.pending, {})
+})

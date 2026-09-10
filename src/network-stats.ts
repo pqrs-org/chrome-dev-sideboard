@@ -151,6 +151,19 @@ export const PageNetworkStats = (() => {
       request.statusCode = undefined
     } else if (event.kind === 'complete' || event.kind === 'error') {
       delete state.pending[event.requestId]
+      // Cache misses, cancellation, and context shutdown do not indicate a
+      // connection failure. Finish tracking without counting a failure or a
+      // successful/cached response; any retry is counted separately.
+      if (
+        event.kind === 'error' &&
+        [
+          'net::ERR_CACHE_MISS',
+          'net::ERR_ABORTED',
+          'net::ERR_CONTEXT_SHUT_DOWN',
+        ].includes(event.error ?? '')
+      ) {
+        return state
+      }
       const statusCode = event.statusCode ?? request.statusCode
       if (event.kind === 'error' || (statusCode ?? 0) >= 400) {
         state.failureDetails ||= []

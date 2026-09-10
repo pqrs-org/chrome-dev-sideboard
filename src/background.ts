@@ -9,7 +9,11 @@ chrome.sidePanel
 const { keyForTab, normalizeEvent, reduce } = PageNetworkStats
 const tabActionQueue = new Map<number, Promise<void>>()
 
+// tabId is Chrome's integer identifier for a tab, not its position in the window.
+// It is unique within a browser session and stays the same across reordering,
+// ordinary navigation, and reloads; do not treat it as persistent across restarts.
 const enqueueTabAction = (tabId: number, action: () => Promise<void>) => {
+  // webRequest uses -1 for requests not associated with a tab; skip those.
   if (tabId < 0) {
     return
   }

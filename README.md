@@ -1,3 +1,6 @@
+[![Build Status](https://github.com/pqrs-org/chrome-dev-sideboard/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/pqrs-org/chrome-dev-sideboard/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush)
+[![License](https://img.shields.io/badge/license-Public%20Domain-blue.svg)](https://github.com/pqrs-org/chrome-dev-sideboard/blob/main/LICENSE.md)
+
 # Dev Sideboard
 
 Inspect page information, network activity, storage, and cookies in Chrome’s side panel.

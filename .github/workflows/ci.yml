@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          package-manager-cache: false
+
+      - uses: pnpm/action-setup@v6
+        with:
+          run_install: false
+
+      - uses: astral-sh/ruff-action@v4.1.0
+        with:
+          version: '0.16.5'
+          args: --version
+
+      - name: Install dependencies
+        # Do not let postinstall formatting hide unformatted source changes.
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Check and package
+        run: make package

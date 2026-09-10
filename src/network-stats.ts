@@ -80,6 +80,8 @@ const PageNetworkStats = (() => {
     event: ReturnType<typeof normalizeEvent>,
   ) => {
     let state = previous
+    // A committed top-level navigation confirms the new document. If its
+    // request already reset the state below, retain measurements collected so far.
     if (event.kind === 'commit') {
       if (!/^https?:/.test(event.url || '')) {
         return null
@@ -92,10 +94,14 @@ const PageNetworkStats = (() => {
       if (state?.documentId === event.documentId && event.documentId) {
         return state
       }
+      // The navigation start was not observed; begin with a partial measurement.
       state = createState(event, 'partial')
       state.documentId = event.documentId
       return state
     }
+    // Reset on a new main-frame request (including reloads), not URL changes
+    // alone. Redirects retain the request ID; same-document SPA/hash navigation
+    // does not take this path or trigger the commit handler above.
     if (event.kind === 'start') {
       if (
         event.type === 'main_frame' &&
@@ -110,6 +116,7 @@ const PageNetworkStats = (() => {
         state.pageUrl = event.url || ''
       }
       // Redirects and auth retries retain the request ID and count as one chain.
+      // Clear the previous response on retries too; they may have no redirect event.
       if (Object.hasOwn(state.pending, event.requestId)) {
         state.pending[event.requestId].bodySize = null
         state.pending[event.requestId].statusCode = undefined
@@ -136,7 +143,12 @@ const PageNetworkStats = (() => {
       request.bodySize = event.bodySize
       request.statusCode = event.statusCode
     } else if (event.kind === 'redirect') {
-      // Only the final response size is counted. Intermediate hops are excluded.
+      // The headers event may already have stored this intermediate response.
+      // Ignoring redirect would leave those values in pending until the next start.
+      // Clear them now instead of assuming another start will be observed:
+      // Chrome documents data: redirects as ending with onBeforeRedirect.
+      // This only clears response metadata; it does not complete the request.
+      // https://developer.chrome.com/docs/extensions/reference/api/webRequest#life_cycle_of_requests
       request.bodySize = null
       request.statusCode = undefined
     } else if (event.kind === 'complete' || event.kind === 'error') {

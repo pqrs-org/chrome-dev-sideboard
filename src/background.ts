@@ -7,31 +7,41 @@ chrome.sidePanel
   .catch(console.error)
 
 const { keyForTab, normalizeEvent, reduce } = PageNetworkStats
-const queues = new Map<number, Promise<void>>()
+const tabActionQueue = new Map<number, Promise<void>>()
 
-const enqueue = (tabId: number, action: () => Promise<void>) => {
+const enqueueTabAction = (tabId: number, action: () => Promise<void>) => {
   if (tabId < 0) {
     return
   }
-  const next = (queues.get(tabId) || Promise.resolve())
+  const next = (tabActionQueue.get(tabId) || Promise.resolve())
     .then(action)
     .catch(console.error)
     .finally(() => {
-      if (queues.get(tabId) === next) {
-        queues.delete(tabId)
+      if (tabActionQueue.get(tabId) === next) {
+        tabActionQueue.delete(tabId)
       }
     })
-  queues.set(tabId, next)
+  tabActionQueue.set(tabId, next)
 }
 
-const record = (kind: NetworkKind, details: NetworkDetails): undefined => {
+const recordNetworkEvent = (
+  kind: NetworkKind,
+  details: NetworkDetails,
+): undefined => {
   if (details.tabId < 0) {
     return
   }
   // Extract only measurements before queuing; do not retain header contents.
   const event = normalizeEvent(kind, details)
-  enqueue(details.tabId, async () => {
+  enqueueTabAction(details.tabId, async () => {
     const key = keyForTab(details.tabId)
+    // storage.session keeps data in Chrome-managed memory across service worker
+    // shutdowns; ordinary variables would lose the accumulated measurements.
+    // After about 30 seconds without events or extension API calls, Chrome can
+    // stop the worker. A later matching webRequest event wakes it, reruns this
+    // script, and reaches this handler, which resumes from the saved measurements.
+    // It is cleared on browser restart, not persisted to disk like storage.local.
+    // The side panel reads this state and receives updates via storage.onChanged.
     const stored =
       await chrome.storage.session.get<Record<string, NetworkState>>(key)
     const state = reduce(stored[key], event)
@@ -43,35 +53,47 @@ const record = (kind: NetworkKind, details: NetworkDetails): undefined => {
   })
 }
 
+// Register listeners synchronously so Chrome can dispatch the event that wakes
+// the worker after it has been stopped.
 const filter = { urls: ['http://*/*', 'https://*/*'] }
-chrome.webRequest.onBeforeRequest.addListener((d) => record('start', d), filter)
+chrome.webRequest.onBeforeRequest.addListener(
+  (d) => recordNetworkEvent('start', d),
+  filter,
+)
 chrome.webRequest.onHeadersReceived.addListener(
-  (d) => record('headers', d),
+  (d) => recordNetworkEvent('headers', d),
   filter,
   ['responseHeaders'],
 )
+// Invalidate intermediate response metadata already recorded by the headers event.
 chrome.webRequest.onBeforeRedirect.addListener(
-  (d) => record('redirect', d),
+  (d) => recordNetworkEvent('redirect', d),
   filter,
 )
-chrome.webRequest.onCompleted.addListener((d) => record('complete', d), filter)
-chrome.webRequest.onErrorOccurred.addListener((d) => record('error', d), filter)
+chrome.webRequest.onCompleted.addListener(
+  (d) => recordNetworkEvent('complete', d),
+  filter,
+)
+chrome.webRequest.onErrorOccurred.addListener(
+  (d) => recordNetworkEvent('error', d),
+  filter,
+)
 
 chrome.webNavigation.onCommitted.addListener((details) => {
   if (details.frameId === 0) {
-    record('commit', details)
+    recordNetworkEvent('commit', details)
   }
 })
 
 chrome.tabs.onRemoved.addListener((tabId) => {
-  enqueue(tabId, () => chrome.storage.session.remove(keyForTab(tabId)))
+  enqueueTabAction(tabId, () => chrome.storage.session.remove(keyForTab(tabId)))
 })
 
 chrome.tabs.onReplaced.addListener((addedTabId, removedTabId) => {
-  enqueue(removedTabId, () =>
+  enqueueTabAction(removedTabId, () =>
     chrome.storage.session.remove(keyForTab(removedTabId)),
   )
-  enqueue(addedTabId, () =>
+  enqueueTabAction(addedTabId, () =>
     chrome.storage.session.remove(keyForTab(addedTabId)),
   )
 })

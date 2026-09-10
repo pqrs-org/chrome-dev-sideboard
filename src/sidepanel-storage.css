@@ -48,6 +48,11 @@
     margin: 0;
     padding: 0;
     list-style: none;
+
+    &:focus-visible {
+      outline: 0.125rem solid var(--accent);
+      outline-offset: -0.125rem;
+    }
   }
 
   .entry-item {
@@ -58,9 +63,12 @@
     border-bottom: 1px solid var(--border);
     cursor: pointer;
 
-    &:hover,
-    &.selected {
+    &:hover {
       background: var(--panel-soft);
+    }
+
+    &.selected {
+      background: color-mix(in srgb, var(--accent) 25%, var(--panel));
     }
   }
 

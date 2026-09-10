@@ -83,12 +83,33 @@ const renderList = () => {
   const total = getStorageEntries().length
   panelElements.countLabel.textContent = `${entries.length} of ${total} ${panelState.mode === 'cookies' ? 'cookies' : 'storage items'}`
   panelElements.entryList.replaceChildren(...entries.map(renderStorageItem))
+  panelElements.entryList.setAttribute(
+    'aria-label',
+    panelState.mode === 'cookies' ? 'Cookies' : 'Storage entries',
+  )
+  const selectedIndex = entries.findIndex(
+    (entry) => entry.id === panelState.selectedStorageId,
+  )
+  panelElements.entryList.setAttribute(
+    'aria-activedescendant',
+    selectedIndex < 0 ? '' : `storage-entry-${selectedIndex}`,
+  )
 }
 
-const renderStorageItem = (entry: DisplayStorageEntry) => {
+const renderStorageItem = (entry: DisplayStorageEntry, index: number) => {
   const item = document.createElement('li')
+  item.id = `storage-entry-${index}`
+  item.setAttribute('role', 'option')
+  item.setAttribute(
+    'aria-selected',
+    String(entry.id === panelState.selectedStorageId),
+  )
   item.className = `entry-item${entry.id === panelState.selectedStorageId ? ' selected' : ''}`
   item.addEventListener('click', () => {
+    if (editState.current) {
+      return
+    }
+    panelElements.entryList.focus({ preventScroll: true })
     if (panelState.selectedStorageId === entry.id) {
       return
     }
@@ -129,6 +150,7 @@ const renderStorageItem = (entry: DisplayStorageEntry) => {
 }
 
 const renderDetail = () => {
+  panelElements.rawButton.textContent = panelState.rawView ? 'Tree' : 'Raw'
   panelElements.rawButton.setAttribute(
     'aria-pressed',
     String(panelState.rawView),
@@ -277,6 +299,44 @@ const applyStorageSnapshot = (snapshot: StorageSnapshot) => {
 
 const initializeStorageList = (onChange: () => void) => {
   renderPanel = onChange
+  panelElements.entryList.addEventListener('keydown', (event) => {
+    if (
+      editState.current ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.metaKey ||
+      (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')
+    ) {
+      return
+    }
+    event.preventDefault()
+    const entries = getVisibleStorageEntries()
+    if (!entries.length) {
+      return
+    }
+    const current = entries.findIndex(
+      (entry) => entry.id === panelState.selectedStorageId,
+    )
+    const next =
+      current < 0
+        ? event.key === 'ArrowDown'
+          ? 0
+          : entries.length - 1
+        : Math.max(
+            0,
+            Math.min(
+              entries.length - 1,
+              current + (event.key === 'ArrowDown' ? 1 : -1),
+            ),
+          )
+    if (current !== next) {
+      panelState.selectedStorageId = entries[next].id
+      renderPanel()
+    }
+    panelElements.entryList
+      .querySelector('.selected')
+      ?.scrollIntoView({ block: 'nearest' })
+  })
   panelElements.filterInput.addEventListener('input', () => {
     window.clearTimeout(filterTimer)
     filterTimer = window.setTimeout(() => {

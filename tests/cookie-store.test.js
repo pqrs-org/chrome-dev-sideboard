@@ -1,8 +1,7 @@
 'use strict'
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const vm = require('node:vm')
-const fs = require('node:fs')
+const { runModule } = require('./helpers/run-module.js')
 const setup = () => {
   let documentId = 'doc'
   let cookies = [
@@ -23,7 +22,6 @@ const setup = () => {
   const queries = []
   const context = {
     URL,
-    module: { exports: {} },
     chrome: {
       webNavigation: {
         getFrame: async () => ({ documentId, url: 'https://example.com/path' }),
@@ -52,11 +50,11 @@ const setup = () => {
       },
     },
   }
-  vm.runInNewContext(
-    fs.readFileSync(require.resolve('../build/src/cookie-store.js'), 'utf8'),
+  const { ExtensionCookies } = runModule(
+    require.resolve('../.test-build/src/cookie-store.js'),
     context,
   )
-  const api = context.module.exports
+  const api = ExtensionCookies
   return {
     api,
     queries,

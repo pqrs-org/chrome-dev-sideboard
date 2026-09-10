@@ -3,9 +3,11 @@
   "private": true,
   "scripts": {
     "build": "sh scripts/build.sh",
+    "build:sidepanel": "esbuild src/sidepanel.ts --bundle --minify --target=chrome142 --outfile=build.new/src/sidepanel.min.js",
+    "build:background": "esbuild src/background.ts src/storage-content.ts --bundle --minify --target=chrome142 --outdir=build.new/src",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . && sh -n scripts/build.sh && sh -n scripts/package.sh",
-    "test": "pnpm run build && node --test tests/*.test.js",
+    "test": "pnpm run build && pnpm exec tsc -p tsconfig.test.json && node --test tests/*.test.js",
     "format": "pnpm run format:write",
     "format:check": "prettier --check .",
     "check": "pnpm run typecheck && pnpm run lint && pnpm test && pnpm run format:check",
@@ -15,6 +17,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/chrome": "^0.2.9",
+    "esbuild": "^0.28.2",
     "eslint": "^10.10.0",
     "globals": "^17.12.0",
     "prettier": "^3.9.6",

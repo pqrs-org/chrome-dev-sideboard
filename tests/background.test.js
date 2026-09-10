@@ -2,8 +2,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const fs = require('node:fs')
-const vm = require('node:vm')
-const stats = require('../build/src/network-stats.js')
+const { runModule } = require('./helpers/run-module.js')
 
 const event = () => {
   let callback
@@ -40,9 +39,10 @@ const worker = (stored) => {
       ].map((name) => [name, event()]),
     ),
   }
-  vm.runInNewContext(
-    fs.readFileSync(require.resolve('../build/src/background.js'), 'utf8'),
-    { chrome: api, PageNetworkStats: stats, importScripts() {}, console },
+  runModule(
+    require.resolve('../.test-build/src/background.js'),
+    { chrome: api, console },
+    { './storage-background.js': {} },
   )
   return api
 }

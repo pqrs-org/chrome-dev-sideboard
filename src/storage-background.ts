@@ -1,5 +1,6 @@
+import { ExtensionCookies } from './cookie-store.js'
+
 ;(() => {
-  'use strict'
   const prefix = 'dev-sideboard:'
   const ports = new Set<PanelClient>()
   const post = (port: chrome.runtime.Port, message: PanelMessage) => {
@@ -63,7 +64,7 @@
       port.name !== prefix + 'panel' ||
       port.sender?.tab ||
       port.sender?.id !== chrome.runtime.id ||
-      port.sender?.url !== chrome.runtime.getURL('src/inspector.html')
+      port.sender?.url !== chrome.runtime.getURL('src/sidepanel.html')
     ) {
       return
     }

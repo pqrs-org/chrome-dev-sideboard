@@ -8,10 +8,12 @@ cd "$(dirname "$0")/.."
 rm -rf build.new
 trap 'rm -rf build.new' EXIT
 
-pnpm exec tsc --outDir build.new/src
+pnpm run typecheck
+pnpm run build:sidepanel
+pnpm run build:background
 cp manifest.json build.new/
 cp -R icons build.new/icons
-cp src/*.html src/*.css build.new/src/
+cp src/*.html build.new/src/
 
 rm -rf build
 mv build.new build

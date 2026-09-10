@@ -1,5 +1,5 @@
 // Only this loader accesses remote preview images. The UI receives Blob URLs.
-const ImagePreviews = (() => {
+export const ImagePreviews = (() => {
   const MAX_IMAGES = 6
   const MAX_BYTES = 5 * 1024 * 1024
   const TIMEOUT_MS = 8000
@@ -139,6 +139,3 @@ const ImagePreviews = (() => {
   }
   return { createBatch }
 })()
-if (typeof module !== 'undefined') {
-  module.exports = ImagePreviews
-}

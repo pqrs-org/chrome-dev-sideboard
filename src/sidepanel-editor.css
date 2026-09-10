@@ -1,0 +1,59 @@
+.inspector {
+  #storageEditor {
+    margin-block: 0.25rem auto;
+    width: calc(100% - 2rem);
+    max-width: 40rem;
+    max-height: calc(100% - 2rem);
+    padding: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    color: var(--text);
+    background: var(--panel);
+    overflow: auto;
+
+    &::backdrop {
+      background: rgb(0 0 0 / 35%);
+    }
+
+    & h2 {
+      margin: 0 0 0.75rem;
+      font-size: inherit;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  #storageValueInput {
+    width: 100%;
+    min-height: 16rem;
+    height: 45vh;
+    resize: vertical;
+    color: var(--text);
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 0.5rem;
+    font: 0.8125rem/1.5 monospace;
+  }
+
+  #storageEditStatus {
+    color: var(--error);
+    overflow-wrap: anywhere;
+  }
+
+  .editor-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+  }
+
+  #saveStorageEdit {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+    font-weight: 600;
+  }
+
+  #deleteStorageButton {
+    color: var(--error);
+    border-color: var(--error);
+  }
+}

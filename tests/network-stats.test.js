@@ -1,11 +1,8 @@
 'use strict'
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const {
-  normalizeEvent,
-  reduce,
-  formatBytes,
-} = require('../build/src/network-stats.js')
+const { normalizeEvent, reduce, formatBytes } =
+  require('../.test-build/src/network-stats.js').PageNetworkStats
 
 const tracker = () => {
   let state

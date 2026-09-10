@@ -1,0 +1,139 @@
+.inspector {
+  .workspace {
+    display: grid;
+    grid-template-columns: minmax(18.75rem, 38%) minmax(0, 1fr);
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .sidebar,
+  .detail {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+    border-right: 1px solid var(--border);
+    background: var(--panel);
+  }
+
+  .toolbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+    padding: 0.625rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    padding: 0.5rem 0.625rem;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .entry-list {
+    flex: 1;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .entry-item {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) minmax(4.5rem, 26%);
+    gap: 0.5rem;
+    padding: 0.5625rem 0.625rem;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+
+    &:hover,
+    &.selected {
+      background: var(--panel-soft);
+    }
+  }
+
+  .area {
+    color: var(--accent);
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+
+  .entry-key {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .value-preview {
+    min-width: 0;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .detail {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  .detail-header {
+    display: flex;
+    align-items: stretch;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0.75rem 0.875rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+
+    & > div:first-child {
+      min-width: 0;
+    }
+  }
+
+  .detail-title {
+    overflow-wrap: anywhere;
+    white-space: normal;
+    word-break: break-word;
+    font-weight: 700;
+  }
+
+  .detail-meta {
+    margin-top: 0.125rem;
+    color: var(--muted);
+  }
+
+  .tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
+  }
+
+  @media (max-width: 40rem) {
+    .workspace {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-rows: minmax(8rem, 38%) minmax(0, 1fr);
+    }
+    .sidebar {
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+    }
+  }
+}

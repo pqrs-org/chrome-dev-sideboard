@@ -18,14 +18,20 @@ const styleRules = {
 }
 
 export default defineConfig([
-  globalIgnores(['build/**', 'build.new/**', 'dist/**', 'node_modules/**']),
+  globalIgnores([
+    'build/**',
+    'build.new/**',
+    '.test-build/**',
+    'dist/**',
+    'node_modules/**',
+  ]),
   {
     files: ['src/**/*.ts'],
     extends: [js.configs.recommended, tseslint.configs.recommended],
     languageOptions: { globals: globals.browser },
     rules: {
       ...styleRules,
-      // TypeScript resolves shared classic-script globals across source files.
+      // TypeScript checks names using module imports and browser API types.
       'no-undef': 'off',
       '@typescript-eslint/no-unused-vars': [
         'error',

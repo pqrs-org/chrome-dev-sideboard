@@ -1,8 +1,6 @@
-const PageNetworkStats = (() => {
-  'use strict'
-
+export const PageNetworkStats = (() => {
   const keyForTab = (tabId: number) => `network:${tabId}`
-  const withoutHash = (url: string) => {
+  const stripUrlCredentialsAndFragment = (url: string) => {
     try {
       const parsed = new URL(url)
       parsed.hash = ''
@@ -32,7 +30,7 @@ const PageNetworkStats = (() => {
         kind === 'commit' ||
         kind === 'error' ||
         (kind === 'complete' && (details.statusCode ?? 0) >= 400)
-          ? withoutHash(details.url)
+          ? stripUrlCredentialsAndFragment(details.url)
           : undefined,
       documentId: details.documentId,
       statusCode: details.statusCode,
@@ -211,6 +209,3 @@ const PageNetworkStats = (() => {
 
   return { keyForTab, normalizeEvent, reduce, formatBytes }
 })()
-if (typeof module !== 'undefined') {
-  module.exports = PageNetworkStats
-}

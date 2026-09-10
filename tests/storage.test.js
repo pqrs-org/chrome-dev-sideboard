@@ -1,8 +1,7 @@
 'use strict'
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const vm = require('node:vm')
+const { runModule } = require('./helpers/run-module.js')
 const tick = () => new Promise(setImmediate)
 const event = () => {
   const listeners = []
@@ -26,21 +25,15 @@ const worker = () => {
   const navigation = {
     getFrame: async () => ({ documentId }),
   }
-  vm.runInNewContext(
-    fs.readFileSync(
-      require.resolve('../build/src/storage-background.js'),
-      'utf8',
-    ),
-    {
-      URL,
-      console,
-      chrome: {
-        runtime,
-        tabs,
-        webNavigation: navigation,
-      },
+  runModule(require.resolve('../.test-build/src/storage-background.js'), {
+    URL,
+    console,
+    chrome: {
+      runtime,
+      tabs,
+      webNavigation: navigation,
     },
-  )
+  })
   return {
     runtime,
     tabs,
@@ -66,28 +59,25 @@ test('storage edits update only the selected key and reject invalid JSON or stal
     removeItem: (key) => values.delete(key),
   })
   let listener
-  vm.runInNewContext(
-    fs.readFileSync(require.resolve('../build/src/storage-content.js'), 'utf8'),
-    {
-      window: {
-        addEventListener() {
-          throw new Error('Storage must not listen to page messages')
-        },
-        localStorage: storage(local),
-        sessionStorage: storage(session),
+  runModule(require.resolve('../.test-build/src/storage-content.js'), {
+    window: {
+      addEventListener() {
+        throw new Error('Storage must not listen to page messages')
       },
-      location: { href: 'https://example.com/', origin: 'https://example.com' },
-      chrome: {
-        runtime: {
-          onMessage: {
-            addListener: (fn) => {
-              listener = fn
-            },
+      localStorage: storage(local),
+      sessionStorage: storage(session),
+    },
+    location: { href: 'https://example.com/', origin: 'https://example.com' },
+    chrome: {
+      runtime: {
+        onMessage: {
+          addListener: (fn) => {
+            listener = fn
           },
         },
       },
     },
-  )
+  })
   const send = (message) => {
     let result
     listener(message, {}, (value) => {
@@ -173,7 +163,7 @@ test('storage writes are routed to the inspected document and rejected after nav
     name: 'dev-sideboard:panel',
     sender: {
       id: 'extension',
-      url: 'chrome-extension://extension/src/inspector.html',
+      url: 'chrome-extension://extension/src/sidepanel.html',
     },
     postMessage: (m) => replies.push(m),
     onMessage: event(),
@@ -228,9 +218,10 @@ test('storage access rejects page ports and does not deliver a stale snapshot af
     { id: 'extension', url: 'https://example.com/', tab: { id: 1 } },
     {
       id: 'another-extension',
-      url: 'chrome-extension://extension/src/inspector.html',
+      url: 'chrome-extension://extension/src/sidepanel.html',
     },
     { id: 'extension', url: 'chrome-extension://extension/other.html' },
+    { id: 'extension', url: 'chrome-extension://extension/src/inspector.html' },
   ]) {
     const port = makePort(sender)
     w.runtime.onConnect.emit(port)
@@ -239,7 +230,7 @@ test('storage access rejects page ports and does not deliver a stale snapshot af
   assert.equal(w.runtime.onMessage.size, 1)
   const port = makePort({
     id: 'extension',
-    url: 'chrome-extension://extension/src/inspector.html',
+    url: 'chrome-extension://extension/src/sidepanel.html',
   })
   w.runtime.onConnect.emit(port)
   port.onMessage.emit({ type: 'init', tabId: 1 })
@@ -292,10 +283,7 @@ test('page metadata preserves duplicates and reads current DOM without accessing
           : tags.map((tag) => ({ getAttribute: (key) => tag[key] ?? null })),
     },
   }
-  vm.runInNewContext(
-    fs.readFileSync(require.resolve('../build/src/storage-content.js'), 'utf8'),
-    context,
-  )
+  runModule(require.resolve('../.test-build/src/storage-content.js'), context)
   let snapshot
   const read = () =>
     listener(

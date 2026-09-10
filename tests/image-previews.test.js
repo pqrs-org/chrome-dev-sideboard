@@ -1,8 +1,7 @@
 'use strict'
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const vm = require('node:vm')
-const fs = require('node:fs')
+const { runModule } = require('./helpers/run-module.js')
 const tick = () => new Promise(setImmediate)
 const setup = (fetch) => {
   const created = [],
@@ -22,7 +21,6 @@ const setup = (fetch) => {
     Blob,
     AbortController,
     fetch,
-    module: { exports: {} },
     setTimeout(fn) {
       timers.add(fn)
       return fn
@@ -31,12 +29,12 @@ const setup = (fetch) => {
       timers.delete(fn)
     },
   }
-  vm.runInNewContext(
-    fs.readFileSync(require.resolve('../build/src/image-previews.js'), 'utf8'),
+  const { ImagePreviews } = runModule(
+    require.resolve('../.test-build/src/image-previews.js'),
     context,
   )
   return {
-    batch: context.module.exports.createBatch(),
+    batch: ImagePreviews.createBatch(),
     created,
     revoked,
     timers,

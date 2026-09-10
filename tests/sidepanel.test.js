@@ -2,8 +2,7 @@
 
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const vm = require('node:vm')
+const { runModule } = require('./helpers/run-module.js')
 
 const createPanel = async () => {
   const elements = new Map()
@@ -28,45 +27,41 @@ const createPanel = async () => {
       },
     }
   }
-  vm.runInNewContext(
-    fs.readFileSync(require.resolve('../build/src/sidepanel.js'), 'utf8'),
-    {
-      PageNetworkStats: require('../build/src/network-stats.js'),
-      document: {
-        querySelector: (selector) => {
-          const element = {
-            textContent: '',
-            open: false,
-            showModal() {
-              this.open = true
-            },
-            close() {
-              this.open = false
-            },
-            classList: { add() {} },
-            listeners: {},
-            addEventListener(type, fn) {
-              this.listeners[type] = fn
-            },
-          }
-          elements.set(selector, element)
-          return element
-        },
-      },
-      chrome: {
-        tabs,
-        storage: {
-          session: { get: async () => stored },
-          onChanged: {
-            addListener: (fn) => {
-              storageListener = fn
-            },
+  runModule(require.resolve('../.test-build/src/sidepanel-overview.js'), {
+    document: {
+      querySelector: (selector) => {
+        const element = {
+          textContent: '',
+          open: false,
+          showModal() {
+            this.open = true
           },
-        },
-        windows: { getCurrent: async () => ({ id: 7 }) },
+          close() {
+            this.open = false
+          },
+          classList: { add() {} },
+          listeners: {},
+          addEventListener(type, fn) {
+            this.listeners[type] = fn
+          },
+        }
+        elements.set(selector, element)
+        return element
       },
     },
-  )
+    chrome: {
+      tabs,
+      storage: {
+        session: { get: async () => stored },
+        onChanged: {
+          addListener: (fn) => {
+            storageListener = fn
+          },
+        },
+      },
+      windows: { getCurrent: async () => ({ id: 7 }) },
+    },
+  })
   await new Promise(setImmediate)
   return {
     elements,
@@ -158,7 +153,7 @@ test('unreadable tabs and errors clear stale page details', async () => {
 
 test('network updates only apply to the active tab and clear on tab switch', async () => {
   const panel = await createPanel()
-  const stats = require('../build/src/network-stats.js')
+  const stats = require('../.test-build/src/network-stats.js').PageNetworkStats
   const state = stats.reduce(
     undefined,
     stats.normalizeEvent('start', {
@@ -197,7 +192,7 @@ test('network updates do not appear on unsupported pages', async () => {
 
 test('failure dialog filters categories, updates live, and closes on tab switch', async () => {
   const panel = await createPanel()
-  const stats = require('../build/src/network-stats.js')
+  const stats = require('../.test-build/src/network-stats.js').PageNetworkStats
   const state = stats.reduce(
     undefined,
     stats.normalizeEvent('start', {

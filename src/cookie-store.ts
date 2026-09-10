@@ -1,5 +1,4 @@
-'use strict'
-const ExtensionCookies = (() => {
+export const ExtensionCookies = (() => {
   // Chrome exposes no per-cookie ID. Build a key for deduplication, UI selection,
   // and locating the cookie again before an edit or deletion.
   // name/domain/path distinguish same-name cookies with different scopes;
@@ -108,6 +107,3 @@ const ExtensionCookies = (() => {
   }
   return { identity, fingerprint, read, write }
 })()
-if (typeof module !== 'undefined') {
-  module.exports = ExtensionCookies
-}

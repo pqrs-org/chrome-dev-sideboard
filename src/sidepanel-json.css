@@ -1,0 +1,65 @@
+.inspector {
+  .json-filter {
+    width: 100%;
+  }
+
+  .viewer {
+    flex: 1;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    margin: 0;
+    padding: 0.875rem;
+    font:
+      0.75rem/1.5 ui-monospace,
+      SFMono-Regular,
+      Menlo,
+      Consolas,
+      monospace;
+  }
+
+  .tree-row {
+    display: block;
+    min-height: 1.1875rem;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    word-break: break-word;
+  }
+
+  .tree-view {
+    & details,
+    & summary {
+      min-width: 0;
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      white-space: normal;
+      word-break: break-word;
+    }
+  }
+
+  .key {
+    color: var(--code-key);
+  }
+
+  .string {
+    color: var(--code-string);
+  }
+
+  .number,
+  .boolean,
+  .null {
+    color: var(--code-number);
+  }
+
+  #rawButton.active {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  .raw-value {
+    margin: 0;
+    font: inherit;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}

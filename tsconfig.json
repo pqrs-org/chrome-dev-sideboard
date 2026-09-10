@@ -2,14 +2,16 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
-    "moduleDetection": "legacy",
+    "moduleDetection": "force",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["chrome"],
     "strict": true,
     "noEmitOnError": true,
     "rootDir": "src",
-    "outDir": "build/src",
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "isolatedModules": true
   },
   "include": ["src/**/*.ts"]
 }

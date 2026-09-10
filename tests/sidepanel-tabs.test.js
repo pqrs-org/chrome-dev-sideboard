@@ -1,8 +1,7 @@
 'use strict'
 const test = require('node:test')
 const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const vm = require('node:vm')
+const { runModule } = require('./helpers/run-module.js')
 const tick = () => new Promise(setImmediate)
 class Element {
   constructor() {
@@ -38,7 +37,7 @@ class Element {
     return []
   }
 }
-test('inspector opens Page, rejects stale metadata, refreshes scoped data, filters values, and edits Storage and Cookies', async () => {
+test('side panel tabs open Page, reject stale metadata, refresh scoped data, filter values, and edit Storage and Cookies', async () => {
   const elements = new Map()
   const sent = []
   let receive
@@ -54,18 +53,9 @@ test('inspector opens Page, rejects stale metadata, refreshes scoped data, filte
   }
   const queries = []
   let poll
-  vm.runInNewContext(
-    fs.readFileSync(require.resolve('../build/src/inspector.js'), 'utf8'),
+  runModule(
+    require.resolve('../.test-build/src/sidepanel-tabs.js'),
     {
-      ExtensionCookies: require('../build/src/cookie-store.js'),
-      ImagePreviews: {
-        createBatch: () => ({
-          dispose() {},
-          load(url, ready) {
-            ready('blob:preview')
-          },
-        }),
-      },
       URL,
       console,
       document: {
@@ -103,6 +93,18 @@ test('inspector opens Page, rejects stale metadata, refreshes scoped data, filte
           onUpdated: { addListener() {} },
           onRemoved: { addListener() {} },
           onReplaced: { addListener() {} },
+        },
+      },
+    },
+    {
+      './image-previews.js': {
+        ImagePreviews: {
+          createBatch: () => ({
+            dispose() {},
+            load(url, ready) {
+              ready('blob:preview')
+            },
+          }),
         },
       },
     },
@@ -386,7 +388,9 @@ test('inspector opens Page, rejects stale metadata, refreshes scoped data, filte
   assert.equal(sent.at(-1).value, 'new-token')
   assert.equal(
     sent.at(-1).expectedCookie,
-    require('../build/src/cookie-store.js').fingerprint(cookie),
+    require('../.test-build/src/cookie-store.js').ExtensionCookies.fingerprint(
+      cookie,
+    ),
   )
   receive({
     type: 'storageSaved',

@@ -1,6 +1,5 @@
-// Classic scripts share these types; no declarations are emitted into the extension.
-declare const module: { exports: unknown } | undefined
-declare const importScripts: (...urls: string[]) => void
+declare module '*.css'
+// Shared types only; no declarations are emitted into the extension.
 
 // Chrome 142's public-network restriction is not yet in TypeScript's DOM library.
 interface RequestInit {

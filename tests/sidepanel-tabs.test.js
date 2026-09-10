@@ -107,8 +107,8 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
       },
     },
     {
-      './sidepanel-page-access.js': {
-        SidepanelPageAccess: {
+      './sidepanel-page-data.js': {
+        SidepanelPageData: {
           readMetadata: (tabId) =>
             queueOperation(tabId, { type: 'getMetadata' }),
           readStorage: (tabId) => queueOperation(tabId, { type: 'getStorage' }),

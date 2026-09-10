@@ -25,8 +25,8 @@ const setup = () => {
     read: async () => ({ documentId, cookies: [] }),
     write: async (...args) => writes.push(args),
   }
-  const { SidepanelPageAccess: api } = runModule(
-    require.resolve('../.test-build/src/sidepanel-page-access.js'),
+  const { SidepanelPageData: api } = runModule(
+    require.resolve('../.test-build/src/sidepanel-page-data.js'),
     {
       chrome: {
         runtime,

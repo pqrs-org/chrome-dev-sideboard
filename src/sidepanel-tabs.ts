@@ -1,4 +1,4 @@
-import { SidepanelPageAccess } from './sidepanel-page-access.js'
+import { SidepanelPageData } from './sidepanel-page-data.js'
 import { SidepanelState } from './sidepanel-state.js'
 import { SidepanelJson } from './sidepanel-json.js'
 import { SidepanelStorage } from './sidepanel-storage.js'
@@ -117,7 +117,7 @@ const requestSnapshot = async () => {
     tabId === panelState.tabId && requestId === snapshotState.requestId
 
   if (panelState.mode === 'metadata') {
-    const snapshot = await SidepanelPageAccess.readMetadata(tabId)
+    const snapshot = await SidepanelPageData.readMetadata(tabId)
     if (!isCurrent()) {
       return
     }
@@ -127,7 +127,7 @@ const requestSnapshot = async () => {
       SidepanelMetadata.renderMetadata()
     }
   } else {
-    const snapshot = await SidepanelPageAccess.readStorage(tabId)
+    const snapshot = await SidepanelPageData.readStorage(tabId)
     if (!isCurrent()) {
       return
     }
@@ -142,7 +142,7 @@ const start = () => {
   SidepanelJson.initializeJsonViewer(SidepanelStorage.renderDetail)
   SidepanelStorage.initializeStorageList(renderTabs)
   SidepanelEditor.initializeStorageEditor()
-  const stopObserving = SidepanelPageAccess.observeMetadataChanges((tabId) => {
+  const stopObserving = SidepanelPageData.observeMetadataChanges((tabId) => {
     if (tabId === panelState.tabId && panelState.mode === 'metadata') {
       snapshotState.pendingUntil = 0
       requestSnapshot()

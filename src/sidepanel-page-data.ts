@@ -86,7 +86,7 @@ const observeMetadataChanges = (onChange: (tabId: number) => void) => {
   return () => chrome.runtime.onMessage.removeListener(listener)
 }
 
-export const SidepanelPageAccess = {
+export const SidepanelPageData = {
   readMetadata,
   readStorage,
   observeMetadataChanges,

@@ -38,6 +38,7 @@ const setup = () => {
     api,
     sent,
     tabs,
+    cookies,
     listeners,
     setDocument: (id) => {
       documentId = id
@@ -89,4 +90,45 @@ test('metadata notifications require the extension, main frame and current docum
   assert.deepEqual(changed, [1])
   stop()
   assert.equal(s.listeners.size, 0)
+})
+
+test('Storage reads do not access cookies', async () => {
+  const s = setup()
+  s.cookies.read = () => {
+    throw new Error('Cookie API must not be used')
+  }
+  const snapshot = await s.api.readStorage(1)
+  assert.equal(snapshot.documentId, 'doc-1')
+  assert.equal(snapshot.error, undefined)
+  assert.equal(s.sent[0][1].type, 'dev-sideboard:get-storage')
+  assert.equal(s.sent[0][2].documentId, 'doc-1')
+})
+
+test('Cookies remain readable without a content script and reject navigation during reads', async () => {
+  const s = setup()
+  s.tabs.sendMessage = () => {
+    throw new Error('No content script')
+  }
+  const cookies = [{ name: 'sid', value: 'value' }]
+  s.cookies.read = async () => ({
+    documentId: 'doc-1',
+    url: 'https://example.com/path',
+    cookies,
+  })
+  const snapshot = await s.api.readCookies(1)
+  assert.equal(snapshot.documentId, 'doc-1')
+  assert.equal(snapshot.origin, 'https://example.com')
+  assert.deepEqual(snapshot.cookies, cookies)
+  assert.equal(snapshot.error, undefined)
+  let finish
+  s.cookies.read = () =>
+    new Promise((resolve) => {
+      finish = resolve
+    })
+  const read = s.api.readCookies(1)
+  s.setDocument('doc-2')
+  finish({ documentId: 'doc-1', url: 'https://example.com/', cookies })
+  const stale = await read
+  assert.match(stale.error, /page changed/)
+  assert.equal(stale.cookies, undefined)
 })

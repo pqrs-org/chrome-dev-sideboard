@@ -13,26 +13,6 @@ const getFrame = async (tabId: number, expectedDocumentId?: string) => {
   return frame
 }
 
-const storageSnapshot = async (
-  tabId: number,
-  frame: chrome.webNavigation.GetFrameResultDetails,
-) => {
-  const snapshot = await chrome.tabs.sendMessage<unknown, StorageSnapshot>(
-    tabId,
-    { type: prefix + 'get-storage' },
-    { documentId: frame.documentId },
-  )
-  try {
-    const cookies = await ExtensionCookies.read(tabId)
-    if (cookies.documentId !== frame.documentId) {
-      throw new Error('Page changed. Refresh again.')
-    }
-    return { ...snapshot, cookies: cookies.cookies }
-  } catch (error) {
-    return { ...snapshot, cookies: [], cookieError: errorMessage(error) }
-  }
-}
-
 const readMetadata = async (tabId: number): Promise<MetadataSnapshot> => {
   try {
     const frame = await getFrame(tabId)
@@ -51,9 +31,27 @@ const readMetadata = async (tabId: number): Promise<MetadataSnapshot> => {
 const readStorage = async (tabId: number): Promise<StorageSnapshot> => {
   try {
     const frame = await getFrame(tabId)
-    const snapshot = await storageSnapshot(tabId, frame)
+    const snapshot = await chrome.tabs.sendMessage<unknown, StorageSnapshot>(
+      tabId,
+      { type: prefix + 'get-storage' },
+      { documentId: frame.documentId },
+    )
     await getFrame(tabId, frame.documentId)
     return { ...snapshot, documentId: frame.documentId }
+  } catch (error) {
+    return { error: errorMessage(error) }
+  }
+}
+
+const readCookies = async (tabId: number): Promise<StorageSnapshot> => {
+  try {
+    const snapshot = await ExtensionCookies.read(tabId)
+    await getFrame(tabId, snapshot.documentId)
+    return {
+      ...snapshot,
+      origin: new URL(snapshot.url).origin,
+      timestamp: Date.now(),
+    }
   } catch (error) {
     return { error: errorMessage(error) }
   }
@@ -85,5 +83,6 @@ const observeMetadataChanges = (onChange: (tabId: number) => void) => {
 export const SidepanelPageData = {
   readMetadata,
   readStorage,
+  readCookies,
   observeMetadataChanges,
 }

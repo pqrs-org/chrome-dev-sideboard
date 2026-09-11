@@ -84,7 +84,6 @@ interface StorageSnapshot {
   session?: StorageValue[]
   cookies?: chrome.cookies.Cookie[]
   error?: string
-  cookieError?: string
 }
 interface MetadataEntry {
   key: string

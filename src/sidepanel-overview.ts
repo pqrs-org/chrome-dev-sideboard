@@ -101,12 +101,16 @@ const renderNetwork = (state: NetworkState | null | undefined) => {
 }
 
 const refreshNetwork = async (tab: chrome.tabs.Tab | undefined) => {
+  const switched = currentTabId !== tab?.id
   currentTabId = tab?.id
   const version = ++networkVersion
-  renderNetwork(null)
+  if (switched) {
+    renderNetwork(null)
+  }
   networkAvailable =
     Number.isInteger(currentTabId) && /^https?:/.test(tab?.url || '')
   if (!networkAvailable || currentTabId === undefined) {
+    renderNetwork(null)
     networkFields.networkScope.textContent =
       'Network measurements are unavailable on this page.'
     return

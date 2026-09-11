@@ -22,7 +22,6 @@ const panelState: {
   storage: {
     documentId: '',
     cookies: [],
-    cookieError: '',
     url: '',
     origin: '',
     timestamp: null,

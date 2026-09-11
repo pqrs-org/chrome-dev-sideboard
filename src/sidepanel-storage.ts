@@ -8,6 +8,7 @@ const { panelState, editState, panelElements, FILTER_DEBOUNCE_MS } =
 let renderPanel: () => void
 
 let filterTimer = 0
+let renderedValueSignature: string | undefined
 
 const getStorageEntries = () => {
   return panelState.mode === 'cookies'
@@ -68,6 +69,7 @@ const renderEmptyDetail = (
   message: string,
   emptyText: string,
 ) => {
+  renderedValueSignature = undefined
   panelElements.detailTitle.textContent = title
   panelElements.detailTitle.title = ''
   panelElements.detailMeta.textContent = message
@@ -158,9 +160,13 @@ const renderDetail = () => {
   const entry = getSelectedStorageEntry()
   if (panelState.storage.error) {
     renderEmptyDetail(
-      'Storage unavailable',
+      panelState.mode === 'cookies'
+        ? 'Cookies unavailable'
+        : 'Storage unavailable',
       panelState.storage.error,
-      'Storage cannot be read on this page.',
+      panelState.mode === 'cookies'
+        ? 'Cookies cannot be read on this page.'
+        : 'Storage cannot be read on this page.',
     )
     return
   }
@@ -172,13 +178,12 @@ const renderDetail = () => {
         : 'No storage item selected',
       panelState.storage.origin || 'Select a normal page tab to view storage.',
       panelState.mode === 'cookies'
-        ? panelState.storage.cookieError || 'No cookies for this page.'
+        ? 'No cookies for this page.'
         : 'No Local Storage or Session Storage items.',
     )
     return
   }
 
-  const parsed = SidepanelJson.parseMaybeJson(entry.value)
   panelElements.detailTitle.textContent =
     entry.area === 'cookie'
       ? `Cookie: ${entry.name}`
@@ -196,6 +201,21 @@ const renderDetail = () => {
   if (entry.area === 'cookie') {
     panelElements.detailMeta.textContent += ` · ${entry.domain}${entry.path} · ${entry.hostOnly ? 'Host-only' : 'Domain'} · ${entry.secure ? 'Secure' : 'Not Secure'} · ${entry.httpOnly ? 'HttpOnly' : 'Not HttpOnly'} · SameSite: ${entry.sameSite} · ${entry.session ? 'Session' : new Date((entry.expirationDate ?? 0) * 1000).toLocaleString()}${entry.partitionKey ? ` · Partition: ${entry.partitionKey.topLevelSite}` : ''}`
   }
+  // Unrelated snapshot changes must not replace the tree DOM: it holds the
+  // user's expansion, selection, and text selection state.
+  const signature = JSON.stringify([
+    panelState.tabId,
+    panelState.storage.documentId,
+    entry.id,
+    entry.value,
+    panelState.rawView,
+    panelState.jsonFilter,
+  ])
+  if (signature === renderedValueSignature) {
+    return
+  }
+  renderedValueSignature = signature
+  const parsed = SidepanelJson.parseMaybeJson(entry.value)
   if (panelState.rawView) {
     SidepanelJson.renderRaw(entry.value)
   } else if (parsed.ok) {
@@ -223,7 +243,6 @@ const normalizeStorageSnapshot = (
     url: snapshot?.url || '',
     origin: snapshot?.origin || '',
     timestamp: snapshot?.timestamp || null,
-    cookieError: snapshot?.cookieError || '',
     cookies: (snapshot?.cookies || []).map((cookie) => ({
       ...cookie,
       area: 'cookie' as const,

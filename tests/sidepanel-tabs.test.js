@@ -40,6 +40,7 @@ class Element {
 test('side panel tabs open Page, reject stale metadata, refresh scoped data, filter values, and edit Storage and Cookies', async () => {
   const elements = new Map()
   const sent = []
+  let snapshotType = 'getStorage'
   let activated
   let activeTabId = 1
   let metadataChanged
@@ -111,7 +112,14 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
         SidepanelPageData: {
           readMetadata: (tabId) =>
             queueOperation(tabId, { type: 'getMetadata' }),
-          readStorage: (tabId) => queueOperation(tabId, { type: 'getStorage' }),
+          readStorage: (tabId) => {
+            snapshotType = 'getStorage'
+            return queueOperation(tabId, { type: snapshotType })
+          },
+          readCookies: (tabId) => {
+            snapshotType = 'getCookies'
+            return queueOperation(tabId, { type: snapshotType })
+          },
           observeMetadataChanges(callback) {
             metadataChanged = callback
             return () => {}
@@ -153,7 +161,7 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
         message.type === 'metadataSnapshot'
           ? 'getMetadata'
           : message.type === 'storageSnapshot'
-            ? 'getStorage'
+            ? snapshotType
             : sent.at(-1).type
       let index = pending.findLastIndex(
         (item) => item.request.type === expectedType,
@@ -327,6 +335,22 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
     },
   })
   assert.equal(elements.get('entryList').children.length, 1)
+  const originalTree = elements.get('treeView').children[0]
+  originalTree.open = false
+  await receive({
+    type: 'storageSnapshot',
+    snapshot: {
+      documentId: 'doc-1',
+      local: [
+        { key: 'hello', value: '{"hello":"world"}' },
+        { key: 'unrelated', value: 'changed' },
+      ],
+      session: [],
+    },
+  })
+  assert.equal(elements.get('treeView').children[0], originalTree)
+  assert.equal(originalTree.open, false)
+  assert.equal(elements.get('entryList').children.length, 2)
   const selected = { open: true }
   const treeView = elements.get('treeView')
   treeView.querySelector = () => selected
@@ -457,18 +481,13 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
     sameSite: 'lax',
     session: true,
   }
+  elements.get('cookiesModeButton').listeners.click()
+  assert.equal(elements.get('editStorageButton').disabled, true)
+  assert.equal(sent.at(-1).type, 'getCookies')
   await receive({
     type: 'storageSnapshot',
-    tabId: 1,
-    snapshot: {
-      documentId: 'doc-1',
-      local: [],
-      session: [],
-      cookies: [cookie],
-    },
+    snapshot: { documentId: 'doc-1', cookies: [cookie] },
   })
-  assert.equal(elements.get('editStorageButton').disabled, true)
-  elements.get('cookiesModeButton').listeners.click()
   assert.equal(elements.get('editStorageButton').disabled, false)
   assert.match(elements.get('detailMeta').textContent, /HttpOnly/)
   elements.get('editStorageButton').listeners.click()

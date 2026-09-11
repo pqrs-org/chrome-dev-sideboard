@@ -247,3 +247,39 @@ test('failure dialog filters categories, updates live, and closes on tab switch'
   assert.equal(panel.elements.get('#failureDialog').open, false)
   assert.equal(panel.elements.get('#networkErrors').disabled, true)
 })
+
+test('title updates preserve failure details but a new navigation closes them', async () => {
+  const panel = await createPanel()
+  const stats = require('../.test-build/src/network-stats.js').PageNetworkStats
+  const state = stats.reduce(
+    undefined,
+    stats.normalizeEvent('start', {
+      tabId: 1,
+      requestId: '1',
+      type: 'main_frame',
+      url: 'https://example.com/',
+      timeStamp: 1000,
+    }),
+  )
+  state.networkErrors = 1
+  panel.stored['network:1'] = state
+  panel.storageChanged({ 'network:1': { newValue: state } }, 'session')
+  panel.elements.get('#networkErrors').listeners.click()
+  panel.setQuery(async () => [
+    { id: 1, title: 'New title', url: 'https://example.com/' },
+  ])
+  panel.listeners.onUpdated(
+    1,
+    { title: 'New title' },
+    { windowId: 7, active: true },
+  )
+  await new Promise(setImmediate)
+  assert.equal(panel.elements.get('#failureDialog').open, true)
+  assert.equal(panel.elements.get('#pageTitle').textContent, 'New title')
+  assert.equal(panel.elements.get('#networkErrors').textContent, '1')
+  panel.storageChanged(
+    { 'network:1': { newValue: { ...state, startedAt: 2000 } } },
+    'session',
+  )
+  assert.equal(panel.elements.get('#failureDialog').open, false)
+})

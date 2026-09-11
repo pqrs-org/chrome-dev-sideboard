@@ -12,7 +12,11 @@ import { SidepanelMetadata } from './sidepanel-metadata.js'
 const { panelState, snapshotState, panelElements, editState } = SidepanelState
 
 const selectMode = (mode: typeof panelState.mode) => {
+  if (panelState.mode === mode) {
+    return
+  }
   panelState.mode = mode
+  panelState.storage = SidepanelStorage.normalizeStorageSnapshot(null)
   snapshotState.pendingUntil = 0
   snapshotState.requestId++
   panelState.selectedStorageId =
@@ -86,7 +90,10 @@ const requestSnapshot = async () => {
       SidepanelMetadata.renderMetadata()
     }
   } else {
-    const snapshot = await SidepanelPageData.readStorage(tabId)
+    const snapshot =
+      panelState.mode === 'cookies'
+        ? await SidepanelPageData.readCookies(tabId)
+        : await SidepanelPageData.readStorage(tabId)
     if (!isCurrent()) {
       return
     }

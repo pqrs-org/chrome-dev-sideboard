@@ -1,11 +1,7 @@
+import { errorMessage } from './error-message.js'
 import { ExtensionCookies } from './cookie-store.js'
 
 const prefix = 'dev-sideboard:'
-const errorMessage = (error: unknown) =>
-  error && typeof error === 'object' && 'message' in error
-    ? String(error.message)
-    : String(error)
-
 const getFrame = async (tabId: number, expectedDocumentId?: string) => {
   const frame = await chrome.webNavigation.getFrame({ tabId, frameId: 0 })
   if (!frame?.documentId) {

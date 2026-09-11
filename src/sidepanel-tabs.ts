@@ -1,3 +1,7 @@
+import {
+  SidepanelActiveTab,
+  type ActiveTabUpdate,
+} from './sidepanel-active-tab.js'
 import { SidepanelPageData } from './sidepanel-page-data.js'
 import { SidepanelState } from './sidepanel-state.js'
 import { SidepanelJson } from './sidepanel-json.js'
@@ -17,78 +21,33 @@ const selectMode = (mode: typeof panelState.mode) => {
   renderTabs()
 }
 
-let tabPanelWindowId: number | undefined
-
-let tabQueryVersion = 0
-
-const initializeTabs = async () => {
-  tabPanelWindowId = (await chrome.windows.getCurrent()).id
-  await selectCurrentTab()
-
-  chrome.tabs.onActivated.addListener(({ windowId }) => {
-    if (windowId === tabPanelWindowId) {
-      selectCurrentTab()
-    }
-  })
-
-  chrome.tabs.onUpdated.addListener((tabId, changes) => {
-    if (
-      tabId === panelState.tabId &&
-      (changes.url || changes.status === 'complete')
-    ) {
-      snapshotState.requestId++
-      snapshotState.pendingUntil = 0
-      panelState.metadata = null
-      panelState.storage = SidepanelStorage.normalizeStorageSnapshot(null)
-      requestSnapshot()
-      renderTabs()
-    }
-  })
-  chrome.tabs.onRemoved.addListener(() => selectCurrentTab())
-  chrome.tabs.onReplaced.addListener(() => selectCurrentTab())
-}
-
-const selectCurrentTab = async () => {
-  const version = ++tabQueryVersion
-  const tabId = await getCurrentTabId()
-  if (version !== tabQueryVersion) {
+const updateActiveTab = ({ tab, error, pageChanged }: ActiveTabUpdate) => {
+  const tabId = tab?.id ?? null
+  const switched = tabId !== panelState.tabId
+  if (!switched && !pageChanged && tabId !== null) {
     return
   }
-  if (typeof tabId !== 'number') {
-    panelState.tabId = null
-
-    panelState.selectedStorageId = null
-    panelState.metadata = null
-    panelState.storage = SidepanelStorage.normalizeStorageSnapshot(null)
-    renderTabs()
-    panelElements.detailTitle.textContent = 'No active tab'
-    panelElements.detailTitle.title = ''
-    panelElements.detailMeta.textContent =
-      'Select a normal page tab to inspect storage and cookies.'
-    return
-  }
-
-  if (tabId === panelState.tabId) {
-    return
-  }
-
   snapshotState.pendingUntil = 0
   snapshotState.requestId++
   panelState.tabId = tabId
-
-  panelState.selectedStorageId = null
-  panelState.metadata = null
-  panelState.storage = SidepanelStorage.normalizeStorageSnapshot(null)
+  if (switched || tabId === null) {
+    panelState.selectedStorageId = null
+  }
+  panelState.metadata = error === undefined ? null : { error }
+  panelState.storage = SidepanelStorage.normalizeStorageSnapshot(
+    error === undefined ? null : { error },
+  )
+  // Clear an edit for the previous document before requesting its replacement.
   renderTabs()
-  requestSnapshot()
-}
-
-const getCurrentTabId = async () => {
-  const [tab] = await chrome.tabs.query({
-    active: true,
-    windowId: tabPanelWindowId,
-  })
-  return tab?.id
+  if (tabId !== null) {
+    requestSnapshot()
+  } else {
+    panelElements.detailTitle.textContent =
+      error === undefined ? 'No active tab' : 'Page information unavailable'
+    panelElements.detailTitle.title = ''
+    panelElements.detailMeta.textContent =
+      error ?? 'Select a normal page tab to inspect storage and cookies.'
+  }
 }
 
 const renderTabs = () => {
@@ -162,12 +121,7 @@ const start = () => {
     selectMode('cookies'),
   )
 
-  initializeTabs().catch((error) => {
-    panelElements.detailMeta.textContent =
-      error && typeof error === 'object' && 'message' in error
-        ? String(error.message)
-        : String(error)
-  })
+  SidepanelActiveTab.observe(updateActiveTab)
 
   window.setInterval(() => {
     if (

@@ -1,3 +1,4 @@
+import { errorMessage } from './error-message.js'
 // Page metadata and website storage are accessed through internal extension messages.
 chrome.runtime.onMessage.addListener(
   (message: ContentRequest, _sender, sendResponse) => {
@@ -46,10 +47,7 @@ chrome.runtime.onMessage.addListener(
       } catch (error) {
         sendResponse({
           ok: false,
-          error:
-            error && typeof error === 'object' && 'message' in error
-              ? String(error.message)
-              : String(error),
+          error: errorMessage(error),
         })
       }
       return false

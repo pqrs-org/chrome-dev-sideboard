@@ -1,3 +1,4 @@
+import { errorMessage } from './error-message.js'
 import { ExtensionCookies } from './cookie-store.js'
 import { SidepanelState } from './sidepanel-state.js'
 import { SidepanelStorage } from './sidepanel-storage.js'
@@ -9,6 +10,21 @@ const { editState, panelElements, panelState, snapshotState } = SidepanelState
 // an earlier operation from closing or updating a newer edit.
 let editRequestSequence = 0
 
+const createStorageEdit = (entry: DisplayStorageEntry): StorageEdit => ({
+  tabId: panelState.tabId,
+  documentId: panelState.storage.documentId,
+  area: entry.area,
+  key: entry.key,
+  expectedValue: entry.value,
+  expectedCookie: entry.area === 'cookie' ? entry.expectedCookie : undefined,
+})
+
+const setEditorBusy = (busy: boolean) => {
+  panelElements.saveStorageEdit.disabled = busy
+  panelElements.cancelStorageEdit.disabled = busy
+  panelElements.storageValueInput.disabled = busy
+}
+
 const handleSaveOrDeleteResult = (edit: StorageEdit, result: StorageResult) => {
   if (
     !editState.current ||
@@ -17,9 +33,7 @@ const handleSaveOrDeleteResult = (edit: StorageEdit, result: StorageResult) => {
   ) {
     return
   }
-  panelElements.saveStorageEdit.disabled = false
-  panelElements.cancelStorageEdit.disabled = false
-  panelElements.storageValueInput.disabled = false
+  setEditorBusy(false)
   if (!result.ok && editState.current.deleting) {
     editState.current = null
     SidepanelStorage.renderModeChrome()
@@ -85,10 +99,7 @@ const saveOrDelete = async (edit: StorageEdit, value?: string) => {
   } catch (error) {
     result = {
       ok: false,
-      error:
-        error && typeof error === 'object' && 'message' in error
-          ? String(error.message)
-          : String(error),
+      error: errorMessage(error),
     }
   }
   handleSaveOrDeleteResult(edit, result)
@@ -102,13 +113,7 @@ const initializeStorageEditor = () => {
     }
     editState.current = {
       deleting: true,
-      tabId: panelState.tabId,
-      documentId: panelState.storage.documentId,
-      area: entry.area,
-      key: entry.key,
-      expectedValue: entry.value,
-      expectedCookie:
-        entry.area === 'cookie' ? entry.expectedCookie : undefined,
+      ...createStorageEdit(entry),
       requestId: ++editRequestSequence,
     }
     SidepanelStorage.renderModeChrome()
@@ -131,13 +136,7 @@ const initializeStorageEditor = () => {
     }
     editState.current = {
       json,
-      tabId: panelState.tabId,
-      documentId: panelState.storage.documentId,
-      area: entry.area,
-      key: entry.key,
-      expectedValue: entry.value,
-      expectedCookie:
-        entry.area === 'cookie' ? entry.expectedCookie : undefined,
+      ...createStorageEdit(entry),
     }
     panelElements.storageEditorTitle.textContent =
       entry.area === 'cookie'
@@ -147,9 +146,7 @@ const initializeStorageEditor = () => {
       ? JSON.stringify(parsed, null, 2)
       : entry.value
     panelElements.storageEditStatus.textContent = ''
-    panelElements.saveStorageEdit.disabled = false
-    panelElements.cancelStorageEdit.disabled = false
-    panelElements.storageValueInput.disabled = false
+    setEditorBusy(false)
     panelElements.storageEditor.showModal()
     panelElements.storageValueInput.focus()
   })
@@ -177,13 +174,11 @@ const initializeStorageEditor = () => {
         JSON.parse(value)
       }
     } catch (error) {
-      panelElements.storageEditStatus.textContent = `Invalid JSON: ${error && typeof error === 'object' && 'message' in error ? String(error.message) : String(error)}`
+      panelElements.storageEditStatus.textContent = `Invalid JSON: ${errorMessage(error)}`
       return
     }
     editState.current.requestId = ++editRequestSequence
-    panelElements.saveStorageEdit.disabled = true
-    panelElements.cancelStorageEdit.disabled = true
-    panelElements.storageValueInput.disabled = true
+    setEditorBusy(true)
     panelElements.storageEditStatus.textContent = 'Saving…'
     saveOrDelete({ ...editState.current }, value)
   })

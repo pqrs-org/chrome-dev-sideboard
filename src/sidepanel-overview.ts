@@ -1,3 +1,5 @@
+import { SidepanelActiveTab } from './sidepanel-active-tab.js'
+import { errorMessage } from './error-message.js'
 import { PageNetworkStats } from './network-stats.js'
 
 const titleElement = document.querySelector<HTMLElement>('#pageTitle')!
@@ -118,11 +120,7 @@ const refreshNetwork = async (tab: chrome.tabs.Tab | undefined) => {
     }
   } catch (error) {
     if (version === networkVersion) {
-      networkFields.networkScope.textContent = String(
-        (error && typeof error === 'object' && 'message' in error
-          ? String(error.message)
-          : String(error)) || error,
-      )
+      networkFields.networkScope.textContent = errorMessage(error)
     }
   }
 }
@@ -138,80 +136,18 @@ chrome.storage.onChanged.addListener((changes, area) => {
   }
 })
 
-let panelWindowId: number | undefined
-let refreshVersion = 0
-
-const refreshPage = async () => {
-  if (panelWindowId === undefined) {
-    return
-  }
-  const version = ++refreshVersion
-  try {
-    const [tab] = await chrome.tabs.query({
-      active: true,
-      windowId: panelWindowId,
-    })
-    if (version !== refreshVersion) {
-      return
-    }
+SidepanelActiveTab.observe(({ tab, error }) => {
+  if (error !== undefined) {
+    titleElement.textContent = 'Page information unavailable'
+    statusElement.textContent = error
+    statusElement.classList.add('error')
+  } else {
     titleElement.textContent = tab
       ? tab.title ||
         (tab.url ? 'Untitled page' : 'Page information unavailable')
       : 'No active tab'
     statusElement.textContent = ''
-    refreshNetwork(tab)
-  } catch (error) {
-    if (version !== refreshVersion) {
-      return
-    }
-    titleElement.textContent = 'Page information unavailable'
-    refreshNetwork(undefined)
-    statusElement.textContent = String(
-      (error && typeof error === 'object' && 'message' in error
-        ? String(error.message)
-        : String(error)) || error,
-    )
-    statusElement.classList.add('error')
+    statusElement.classList.remove('error')
   }
-}
-
-chrome.tabs.onActivated.addListener(({ windowId }) => {
-  if (windowId === panelWindowId) {
-    refreshPage()
-  }
+  refreshNetwork(tab)
 })
-
-chrome.tabs.onUpdated.addListener((_tabId, changes, tab) => {
-  if (
-    tab.windowId === panelWindowId &&
-    tab.active &&
-    ('title' in changes || 'url' in changes || 'status' in changes)
-  ) {
-    refreshPage()
-  }
-})
-
-chrome.tabs.onRemoved.addListener((_tabId, { windowId }) => {
-  if (windowId === panelWindowId) {
-    refreshPage()
-  }
-})
-
-chrome.tabs.onReplaced.addListener(() => refreshPage())
-
-chrome.windows
-  .getCurrent()
-  .then((window) => {
-    panelWindowId = window.id
-    return refreshPage()
-  })
-  .catch((error) => {
-    titleElement.textContent = 'Page information unavailable'
-    refreshNetwork(undefined)
-    statusElement.textContent = String(
-      (error && typeof error === 'object' && 'message' in error
-        ? String(error.message)
-        : String(error)) || error,
-    )
-    statusElement.classList.add('error')
-  })

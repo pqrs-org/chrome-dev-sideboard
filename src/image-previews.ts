@@ -1,3 +1,4 @@
+import { errorMessage } from './error-message.js'
 // Only this loader accesses remote preview images. The UI receives Blob URLs.
 export const ImagePreviews = (() => {
   const MAX_IMAGES = 6
@@ -86,9 +87,7 @@ export const ImagePreviews = (() => {
           job.failed(
             controller.signal.aborted
               ? 'Image request timed out'
-              : error && typeof error === 'object' && 'message' in error
-                ? String(error.message)
-                : String(error),
+              : errorMessage(error),
           )
         }
       } finally {

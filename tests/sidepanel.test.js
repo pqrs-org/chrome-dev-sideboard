@@ -39,7 +39,7 @@ const createPanel = async () => {
           close() {
             this.open = false
           },
-          classList: { add() {} },
+          classList: { add() {}, remove() {} },
           listeners: {},
           addEventListener(type, fn) {
             this.listeners[type] = fn

@@ -1,6 +1,11 @@
 declare module '*.css'
 // Shared types only; no declarations are emitted into the extension.
 
+// Chrome's address-space constraint is not yet in TypeScript's DOM library.
+interface RequestInit {
+  targetAddressSpace?: 'public'
+}
+
 type NetworkKind =
   'start' | 'headers' | 'redirect' | 'complete' | 'error' | 'commit'
 interface NetworkDetails {
@@ -86,6 +91,7 @@ interface MetadataEntry {
   values?: string[]
 }
 interface MetadataSnapshot {
+  pageUrl?: string
   documentId?: string
   canonical?: MetadataEntry[]
   openGraph?: MetadataEntry[]
@@ -94,6 +100,7 @@ interface MetadataSnapshot {
   error?: string
 }
 interface ImagePage {
+  origin: string
   tabId: number
   documentId: string
 }

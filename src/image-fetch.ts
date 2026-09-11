@@ -1,4 +1,4 @@
-// Only the isolated content script fetches images; the panel shares these limits.
+// Shared limits and validation for content-script and panel image requests.
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 export const IMAGE_TIMEOUT_MS = 8000
 

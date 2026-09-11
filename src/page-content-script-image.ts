@@ -34,11 +34,14 @@ chrome.runtime.onConnect.addListener((port) => {
         ) {
           throw new Error('Invalid image request')
         }
-        // CORS and local-network access follow the inspected page's permissions,
-        // even for other origins. Never use no-cors: we need readable image bytes.
-        // Refuse redirects and omit credentials, including for same-origin images.
-        const blob = await fetchImageBlob(message.url, {
-          mode: 'cors',
+        const url = new URL(message.url)
+        if (url.origin !== location.origin) {
+          throw new Error('Image must have the same origin as the page')
+        }
+        // Keep this endpoint limited to the inspected page's origin.
+        // Refuse redirects and omit credentials, including cookies.
+        const blob = await fetchImageBlob(url.href, {
+          mode: 'same-origin',
           redirect: 'error',
           cache: message.cache,
           signal: controller.signal,

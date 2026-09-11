@@ -20,7 +20,7 @@ All inspection data is processed locally in your browser. Network measurements a
 
 ## Sharing
 
-The extension does not send inspection data to the developer. The developer does not receive any data from the extension. Image previews load from HTTPS URLs specified by the page, subject to the inspected page's CORS and local-network access restrictions. This can include local-network URLs where the browser permits access. Those image hosts receive ordinary image requests, including your IP address. Preview requests omit browser credentials (including cookies). Referrer handling follows browser defaults. Responses do not set browser cookies.
+The extension does not send inspection data to the developer. The developer does not receive any data from the extension. Image previews load from HTTPS URLs specified by the page, including local-network URLs when they have the same origin as the inspected page. Other-origin previews are fetched by the extension and restricted to the public network. Those image hosts receive ordinary image requests, including your IP address. Preview requests omit browser credentials (including cookies). Referrer handling follows browser defaults. Responses do not set browser cookies.
 
 Its use of information received from Google APIs adheres to the Chrome Web Store User Data Policy, including the Limited Use requirements.
 

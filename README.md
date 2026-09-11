@@ -35,7 +35,7 @@ Protecting website data is a design priority. Inspecting Local Storage, Session 
 
 Features are omitted when a safe implementation cannot be established within the extension’s design. Fetch/XHR response-body capture is intentionally excluded to avoid exposing captured responses to unrelated page scripts.
 
-Image previews make requests to HTTPS URLs specified by the page. All images are fetched through the inspected page, following its CORS and local-network access restrictions. Cross-origin previews require the image server to allow CORS. Image hosts receive the requested URL and your IP address, but preview requests omit browser credentials, including cookies. Image requests reject redirects. Image count, response size, and request duration are limited.
+Image previews make requests to HTTPS URLs specified by the page. Same-origin images are fetched through the inspected page. Other-origin images are fetched by the extension and restricted to public network addresses, including redirect destinations. Image hosts receive the requested URL and your IP address, but preview requests omit browser credentials, including cookies. Same-origin image requests reject redirects. Image count, response size, and request duration are limited.
 
 See the [privacy policy](PRIVACY.md) for data handling and retention details.
 

@@ -5,7 +5,7 @@ const { runModule } = require('./helpers/run-module.js')
 const tick = () => new Promise(setImmediate)
 const setup = (
   fetch,
-  page = { tabId: 7, documentId: 'doc-1' },
+  page = { tabId: 7, documentId: 'doc-1', origin: 'https://page.example' },
   readPageImage,
 ) => {
   const created = [],
@@ -33,24 +33,13 @@ const setup = (
       timers.delete(fn)
     },
   }
-  const { fetchImageBlob } = runModule(
-    require.resolve('../.test-build/src/image-fetch.js'),
-    context,
-  )
   const { ImagePreviews } = runModule(
     require.resolve('../.test-build/src/sidepanel-image-previews.js'),
     context,
     {
       './sidepanel-image-access.js': {
         readPageImage:
-          readPageImage ||
-          ((_page, url, cache, signal) =>
-            fetchImageBlob(url, {
-              mode: 'cors',
-              redirect: 'error',
-              cache,
-              signal,
-            })),
+          readPageImage || (() => assert.fail('unexpected content request')),
       },
     },
   )
@@ -78,8 +67,8 @@ test('page image previews only expose revocable Blob URLs', async () => {
   )
   await tick()
   assert.equal(options.credentials, 'omit')
-  assert.equal(options.targetAddressSpace, undefined)
-  assert.equal(options.redirect, 'error')
+  assert.equal(options.targetAddressSpace, 'public')
+  assert.equal(options.redirect, undefined)
   assert.equal(options.referrerPolicy, undefined)
   assert.equal(options.cache, undefined)
   assert.deepEqual(ready, ['blob:1'])
@@ -225,7 +214,7 @@ test('individual reloads revalidate only their image, release old blobs, and reu
     assert.equal(requests.at(-1).url, 'https://example.com/first')
     assert.equal(requests.at(-1).cache, 'no-cache')
     assert.equal(requests.at(-1).credentials, 'omit')
-    assert.equal(requests.at(-1).targetAddressSpace, undefined)
+    assert.equal(requests.at(-1).targetAddressSpace, 'public')
   }
   assert.equal(requests.length, 10)
   assert.equal(s.revoked.length, 8)
@@ -236,7 +225,7 @@ test('individual reloads revalidate only their image, release old blobs, and reu
   assert.equal(requests.length, 10)
 })
 
-test('all origins use the page and failures never fall back to privileged fetch', async () => {
+test('same-origin failures never fall back; other origins use public-only extension fetch', async () => {
   const page = {
     tabId: 7,
     documentId: 'doc-1',
@@ -263,14 +252,13 @@ test('all origins use the page and failures never fall back to privileged fetch'
   assert.deepEqual(errors, ['Page request rejected'])
   assert.equal(direct.length, 0)
   assert.equal(viaPage[0][0], page)
-  s.batch.load('https://other.example/image', assert.fail, (error) =>
-    errors.push(error),
+  await new Promise((resolve, reject) =>
+    s.batch.load('https://other.example/image', resolve, reject),
   )
-  await tick()
-  assert.equal(viaPage.length, 2)
-  assert.equal(viaPage[1][0], page)
-  assert.equal(direct.length, 0)
-  assert.deepEqual(errors, ['Page request rejected', 'Page request rejected'])
+  assert.equal(viaPage.length, 1)
+  assert.equal(direct.length, 1)
+  assert.equal(direct[0].options.targetAddressSpace, 'public')
+  assert.equal(direct[0].options.credentials, 'omit')
   s.batch.dispose()
 })
 

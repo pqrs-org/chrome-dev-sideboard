@@ -1,5 +1,5 @@
 import { errorMessage } from './error-message.js'
-import { IMAGE_TIMEOUT_MS } from './image-fetch.js'
+import { fetchImageBlob, IMAGE_TIMEOUT_MS } from './image-fetch.js'
 import { readPageImage } from './sidepanel-image-access.js'
 // The UI only receives revocable Blob URLs, never page-provided image markup.
 export const ImagePreviews = (() => {
@@ -27,14 +27,23 @@ export const ImagePreviews = (() => {
         if (!page) {
           throw new Error('Inspected page is unavailable')
         }
-        // All images use the inspected document's network context, including
-        // CORS and local-network permissions. Never retry with extension privileges.
-        const blob = await readPageImage(
-          page,
-          parsed.href,
-          job.cache,
-          controller.signal,
-        )
+        // Same-origin images use the inspected document's network context.
+        // Never retry rejected page requests with extension privileges.
+        const blob =
+          parsed.origin === page.origin
+            ? await readPageImage(
+                page,
+                parsed.href,
+                job.cache,
+                controller.signal,
+              )
+            : await fetchImageBlob(parsed.href, {
+                cache: job.cache,
+                // A page can point og:image at localhost or an internal service.
+                // Require public addresses after DNS resolution and on redirects.
+                targetAddressSpace: 'public',
+                signal: controller.signal,
+              })
         if (disposed || controller.signal.aborted) {
           return
         }

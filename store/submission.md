@@ -28,7 +28,7 @@ Passively observes HTTP/HTTPS request lifecycle events to display request counts
 
 ### Host permissions
 
-HTTP/HTTPS host access lets users inspect any website they visit. Network observation requires access to requested URLs and initiators, including cross-origin resources. An isolated top-frame content script reads page metadata and reads, edits, or deletes Local Storage and Session Storage entries through internal extension messages. Host access also allows the cookies API to inspect and modify cookies for the active page. All HTTPS image previews are fetched by the content script under the inspected page's CORS and local-network access restrictions, without credentials and with redirects rejected. No image requests use the extension's cross-origin privileges.
+HTTP/HTTPS host access lets users inspect any website they visit. Network observation requires access to requested URLs and initiators, including cross-origin resources. An isolated top-frame content script reads page metadata and reads, edits, or deletes Local Storage and Session Storage entries through internal extension messages. Host access also allows the cookies API to inspect and modify cookies for the active page. Same-origin HTTPS image previews are fetched by the content script without credentials and with redirects rejected. Other-origin HTTPS previews use the extension's host permissions to fetch images without requiring the image server to allow CORS. These requests omit credentials and use targetAddressSpace: public to exclude local-network destinations, including redirects.
 
 ### webNavigation
 

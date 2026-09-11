@@ -141,7 +141,7 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
           },
         },
       },
-      './image-previews.js': {
+      './sidepanel-image-previews.js': {
         ImagePreviews: {
           createBatch: () => {
             return {

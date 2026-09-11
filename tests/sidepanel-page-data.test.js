@@ -29,7 +29,12 @@ const setup = () => {
       chrome: {
         runtime,
         tabs,
-        webNavigation: { getFrame: async () => ({ documentId }) },
+        webNavigation: {
+          getFrame: async () => ({
+            documentId,
+            url: 'https://example.com/page',
+          }),
+        },
       },
     },
     { './cookie-store.js': { ExtensionCookies: cookies } },
@@ -131,4 +136,17 @@ test('Cookies remain readable without a content script and reject navigation dur
   const stale = await read
   assert.match(stale.error, /page changed/)
   assert.equal(stale.cookies, undefined)
+})
+
+test('image routing uses Chrome document URL instead of page-controlled metadata URLs', async () => {
+  const s = setup()
+  s.tabs.sendMessage = async () => ({
+    pageUrl: 'https://attacker.example/',
+    documentId: 'forged',
+    baseUrl: 'https://cdn.example/',
+  })
+  const metadata = await s.api.readMetadata(1)
+  assert.equal(metadata.pageUrl, 'https://example.com/page')
+  assert.equal(metadata.documentId, 'doc-1')
+  assert.equal(metadata.baseUrl, 'https://cdn.example/')
 })

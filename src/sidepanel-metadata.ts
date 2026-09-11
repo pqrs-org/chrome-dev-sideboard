@@ -1,6 +1,6 @@
 import { SidepanelState } from './sidepanel-state.js'
 import { SidepanelJson } from './sidepanel-json.js'
-import { ImagePreviews } from './image-previews.js'
+import { ImagePreviews } from './sidepanel-image-previews.js'
 
 const { panelState, panelElements } = SidepanelState
 
@@ -10,11 +10,19 @@ let descriptionObserver: ResizeObserver | undefined
 const renderMetadata = () => {
   descriptionObserver?.disconnect()
   previewBatch.dispose()
-  previewBatch = ImagePreviews.createBatch()
+  const data = panelState.metadata
+  previewBatch = ImagePreviews.createBatch(
+    panelState.tabId !== null && data?.documentId && data.pageUrl
+      ? {
+          tabId: panelState.tabId,
+          documentId: data.documentId,
+          origin: new URL(data.pageUrl).origin,
+        }
+      : undefined,
+  )
   if (panelState.mode !== 'metadata') {
     return
   }
-  const data = panelState.metadata
   if (!data || data.error) {
     panelElements.metadataView.replaceChildren(
       SidepanelJson.emptyState(

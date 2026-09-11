@@ -3,7 +3,7 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const { runModule } = require('./helpers/run-module.js')
 const tick = () => new Promise(setImmediate)
-const setup = (fetch) => {
+const setup = (fetch, page, readPageImage) => {
   const created = [],
     revoked = [],
     timers = new Set()
@@ -30,11 +30,12 @@ const setup = (fetch) => {
     },
   }
   const { ImagePreviews } = runModule(
-    require.resolve('../.test-build/src/image-previews.js'),
+    require.resolve('../.test-build/src/sidepanel-image-previews.js'),
     context,
+    readPageImage ? { './sidepanel-image-access.js': { readPageImage } } : {},
   )
   return {
-    batch: ImagePreviews.createBatch(),
+    batch: ImagePreviews.createBatch(page),
     created,
     revoked,
     timers,
@@ -213,4 +214,39 @@ test('individual reloads revalidate only their image, release old blobs, and reu
   assert.equal(new Set(s.revoked).size, 10)
   reload()
   assert.equal(requests.length, 10)
+})
+
+test('same-origin failures never fall back to privileged fetch; other origins stay public-only', async () => {
+  const page = {
+    tabId: 7,
+    documentId: 'doc-1',
+    origin: 'https://internal.example',
+  }
+  const direct = [],
+    viaPage = []
+  const s = setup(
+    async (url, options) => {
+      direct.push({ url, options })
+      return response()
+    },
+    page,
+    async (...args) => {
+      viaPage.push(args)
+      throw new Error('Page request rejected')
+    },
+  )
+  const errors = []
+  s.batch.load('https://internal.example/image', assert.fail, (error) =>
+    errors.push(error),
+  )
+  await tick()
+  assert.deepEqual(errors, ['Page request rejected'])
+  assert.equal(direct.length, 0)
+  assert.equal(viaPage[0][0], page)
+  await new Promise((resolve, reject) =>
+    s.batch.load('https://other.example/image', resolve, reject),
+  )
+  assert.equal(viaPage.length, 1)
+  assert.equal(direct[0].options.targetAddressSpace, 'public')
+  s.batch.dispose()
 })

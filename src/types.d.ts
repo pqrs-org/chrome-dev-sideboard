@@ -91,6 +91,7 @@ interface MetadataEntry {
   values?: string[]
 }
 interface MetadataSnapshot {
+  pageUrl?: string
   documentId?: string
   canonical?: MetadataEntry[]
   openGraph?: MetadataEntry[]
@@ -98,6 +99,13 @@ interface MetadataSnapshot {
   baseUrl?: string
   error?: string
 }
+interface ImagePage {
+  tabId: number
+  documentId: string
+  origin: string
+}
+type ImageReply =
+  { ok: true; type: string; data: string } | { ok: false; error: string }
 interface ImageJob {
   cache?: RequestCache
   objectUrl?: string

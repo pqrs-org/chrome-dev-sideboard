@@ -5,7 +5,7 @@
     "watch": "nodemon",
     "build": "sh scripts/build.sh",
     "build:sidepanel": "esbuild src/sidepanel.ts --bundle --minify --target=chrome142 --outfile=build.new/src/sidepanel.min.js",
-    "build:background": "esbuild src/background.ts src/storage-content.ts --bundle --minify --target=chrome142 --outdir=build.new/src",
+    "build:background": "esbuild src/background.ts src/page-content-script.ts --bundle --minify --target=chrome142 --outdir=build.new/src",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . && sh -n scripts/build.sh && sh -n scripts/package.sh",
     "test": "pnpm run build && pnpm exec tsc -p tsconfig.test.json && node --test tests/*.test.js",

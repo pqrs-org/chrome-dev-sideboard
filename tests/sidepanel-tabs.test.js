@@ -40,6 +40,7 @@ class Element {
 test('side panel tabs open Page, reject stale metadata, refresh scoped data, filter values, and edit Storage and Cookies', async () => {
   const elements = new Map()
   const sent = []
+  const reloadedImages = []
   let snapshotType = 'getStorage'
   let activated
   let activeTabId = 1
@@ -142,12 +143,15 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
       },
       './image-previews.js': {
         ImagePreviews: {
-          createBatch: () => ({
-            dispose() {},
-            load(url, ready) {
-              ready('blob:preview')
-            },
-          }),
+          createBatch: () => {
+            return {
+              dispose() {},
+              load(url, ready) {
+                ready('blob:preview')
+                return () => reloadedImages.push(url)
+              },
+            }
+          },
         },
       },
     },
@@ -285,6 +289,23 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
   assert.equal(imageEntries[3].children.length, 0)
   assert.equal(imageEntries[5].children.length, 0)
   assert.equal(imageEntries[7].children.length, 0)
+  const reloadButton = imageEntries[0].children[0]
+  assert.equal(reloadButton['aria-label'], 'Reload og:image image')
+  assert.equal(reloadButton.disabled, true)
+  image.remove = () => {}
+  image.listeners.load()
+  assert.equal(reloadButton.disabled, false)
+  const beforeReload = sent.length
+  reloadButton.listeners.click()
+  reloadButton.listeners.click()
+  assert.deepEqual(reloadedImages, ['https://example.com/base/preview.png'])
+  assert.equal(
+    sent.length,
+    beforeReload,
+    'reloading an image does not re-read metadata',
+  )
+  assert.equal(reloadButton.disabled, true)
+
   await receive({
     type: 'metadataSnapshot',
     snapshot: {

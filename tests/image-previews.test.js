@@ -183,3 +183,34 @@ test('preview loading preserves MIME types without filtering formats before imag
     assert.deepEqual(s.revoked, ['blob:1'])
   }
 })
+
+test('individual reloads revalidate only their image, release old blobs, and reuse the image slot', async () => {
+  const requests = []
+  const s = setup(async (url, init) => {
+    requests.push({ url, ...init })
+    return response('image')
+  })
+  const reload = s.batch.load(
+    'https://example.com/first',
+    () => {},
+    assert.fail,
+  )
+  s.batch.load('https://example.com/second', () => {}, assert.fail)
+  await tick()
+  assert.ok(requests.every((request) => request.cache === undefined))
+  for (let i = 0; i < 8; i++) {
+    reload()
+    await tick()
+    assert.equal(requests.at(-1).url, 'https://example.com/first')
+    assert.equal(requests.at(-1).cache, 'no-cache')
+    assert.equal(requests.at(-1).credentials, 'omit')
+    assert.equal(requests.at(-1).targetAddressSpace, 'public')
+  }
+  assert.equal(requests.length, 10)
+  assert.equal(s.revoked.length, 8)
+  assert.ok(!s.revoked.includes('blob:2'), 'the other image stays usable')
+  s.batch.dispose()
+  assert.equal(new Set(s.revoked).size, 10)
+  reload()
+  assert.equal(requests.length, 10)
+})

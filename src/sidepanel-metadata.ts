@@ -101,21 +101,32 @@ const renderMetadata = () => {
       }
       const imageUrl = metadataImageUrl(entry, data.baseUrl)
       if (imageUrl) {
+        const reloadButton = document.createElement('button')
+        reloadButton.type = 'button'
+        reloadButton.className = 'metadata-image-reload'
+        reloadButton.textContent = '↻'
+        reloadButton.title = 'Reload image'
+        reloadButton.setAttribute('aria-label', `Reload ${entry.key} image`)
+        reloadButton.disabled = true
+        name.append(reloadButton)
+        let image: HTMLImageElement | undefined
         const status = document.createElement('span')
         status.className = 'metadata-image-error'
         status.textContent = 'Loading image…'
         value.append(status)
-        previewBatch.load(
+        const reload = previewBatch.load(
           imageUrl,
           (blobUrl) => {
-            const image = document.createElement('img')
+            image = document.createElement('img')
             image.className = 'metadata-image'
             image.alt = entry.key
             image.addEventListener('load', () => {
               status.hidden = true
+              reloadButton.disabled = false
             })
             image.addEventListener('error', () => {
-              image.remove()
+              image?.remove()
+              reloadButton.disabled = false
               status.textContent = 'Image unavailable'
             })
             image.src = blobUrl
@@ -123,8 +134,23 @@ const renderMetadata = () => {
           },
           (message) => {
             status.textContent = message
+            reloadButton.disabled = false
           },
         )
+        if (reload) {
+          reloadButton.addEventListener('click', () => {
+            if (reloadButton.disabled) {
+              return
+            }
+            reloadButton.disabled = true
+            image?.remove()
+            status.hidden = false
+            status.textContent = 'Loading image…'
+            reload()
+          })
+        } else {
+          reloadButton.disabled = true
+        }
       }
       list.append(name, value)
     }

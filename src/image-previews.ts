@@ -33,6 +33,8 @@ export const ImagePreviews = (() => {
           // Omit browser credentials and ignore Set-Cookie responses, preventing
           // previews from using or changing the user's authenticated session.
           credentials: 'omit',
+          // Manual refresh revalidates cached images; ordinary loads use defaults.
+          cache: job.cache,
           // Let Chrome check the resolved address space, not just the URL text:
           // a public-looking hostname can resolve to a private or loopback IP.
           // Requires the minimum Chrome version declared in manifest.json (142).
@@ -81,6 +83,7 @@ export const ImagePreviews = (() => {
         }
         const url = URL.createObjectURL(new Blob(chunks, { type }))
         urls.add(url)
+        job.objectUrl = url
         job.ready(url)
       } catch (error) {
         if (!disposed) {
@@ -120,8 +123,24 @@ export const ImagePreviews = (() => {
           failed('Preview limit reached (6 images)')
           return
         }
-        queue.push({ url, ready, failed })
+        const job: ImageJob = { url, ready, failed }
+        queue.push(job)
         pump()
+        // Reuse the admitted image slot, releasing its old Blob on each retry.
+        // The UI disables reload while a request or image decode is pending.
+        return () => {
+          if (disposed) {
+            return
+          }
+          if (job.objectUrl) {
+            URL.revokeObjectURL(job.objectUrl)
+            urls.delete(job.objectUrl)
+            job.objectUrl = undefined
+          }
+          job.cache = 'no-cache'
+          queue.push(job)
+          pump()
+        }
       },
       dispose() {
         disposed = true

@@ -99,6 +99,8 @@ interface MetadataSnapshot {
   error?: string
 }
 interface ImageJob {
+  cache?: RequestCache
+  objectUrl?: string
   url: string
   ready: (url: string) => void
   failed: (message: string) => void

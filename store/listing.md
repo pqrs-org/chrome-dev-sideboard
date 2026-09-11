@@ -1,7 +1,5 @@
 # Chrome Web Store listing
 
-Prepared for Dev Sideboard 1.2.0. Not yet submitted.
-
 ## Name
 
 Dev Sideboard
@@ -28,7 +26,6 @@ Choose the closest available developer tools category. Default listing language:
 ## URLs
 
 - Homepage: https://github.com/pqrs-org/chrome-dev-sideboard
-- Support: https://github.com/pqrs-org/chrome-dev-sideboard/issues
 - Privacy policy: https://github.com/pqrs-org/chrome-dev-sideboard/blob/main/PRIVACY.md
 
 The repository is public. Publish the updated PRIVACY.md to the main branch before submission so the public policy describes the current image fetching behavior.

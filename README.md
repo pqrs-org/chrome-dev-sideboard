@@ -5,6 +5,8 @@
 
 Inspect page information, network activity, storage, and cookies in Chrome’s side panel.
 
+![screenshot](files/screenshot.png)
+
 ## Features
 
 - Full page titles, following the active tab in each window

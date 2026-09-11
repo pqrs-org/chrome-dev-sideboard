@@ -1,53 +1,50 @@
-'use strict'
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const { runModule } = require('./helpers/run-module.js')
+import { required, type MessageListener } from './helpers/mocks.js'
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { runModule } from './helpers/run-module.js'
 test('storage edits update only the selected key and reject invalid JSON or stale values', () => {
   const local = new Map([
     ['settings', '{"enabled":false}'],
     ['other', 'keep'],
   ])
   const session = new Map([['settings', '{"count":1}']])
-  const storage = (values) => ({
+  const storage = (values: Map<string, string>) => ({
     get length() {
       return values.size
     },
-    key: (index) => [...values.keys()][index],
-    getItem: (key) => values.get(key) ?? null,
-    setItem: (key, value) => values.set(key, value),
-    removeItem: (key) => values.delete(key),
+    key: (index: number) => [...values.keys()][index],
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => values.set(key, value),
+    removeItem: (key: string) => values.delete(key),
   })
-  let listener
-  runModule(
-    require.resolve('../.test-build/src/page-content-script-storage.js'),
-    {
-      window: {
-        addEventListener() {
-          throw new Error('Storage must not listen to page messages')
-        },
-        localStorage: storage(local),
-        sessionStorage: storage(session),
+  let listener!: MessageListener<StorageResult>
+  runModule('../src/page-content-script-storage.js', {
+    window: {
+      addEventListener() {
+        throw new Error('Storage must not listen to page messages')
       },
-      location: { href: 'https://example.com/', origin: 'https://example.com' },
-      chrome: {
-        runtime: {
-          onMessage: {
-            addListener: (fn) => {
-              listener = fn
-            },
+      localStorage: storage(local),
+      sessionStorage: storage(session),
+    },
+    location: { href: 'https://example.com/', origin: 'https://example.com' },
+    chrome: {
+      runtime: {
+        onMessage: {
+          addListener: (fn: typeof listener) => {
+            listener = fn
           },
         },
       },
     },
-  )
-  const send = (message) => {
-    let result
+  })
+  const send = (message: ContentRequest) => {
+    let result: StorageResult | undefined
     listener(message, {}, (value) => {
       result = value
     })
-    return result
+    return required(result)
   }
-  const edit = {
+  const edit: ContentRequest = {
     type: 'dev-sideboard:set-storage',
     area: 'local',
     key: 'settings',
@@ -71,7 +68,7 @@ test('storage edits update only the selected key and reject invalid JSON or stal
     true,
   )
   assert.equal(session.get('settings'), '{"count":2}')
-  const textEdit = {
+  const textEdit: ContentRequest = {
     type: 'dev-sideboard:set-storage',
     area: 'local',
     key: 'other',
@@ -86,7 +83,7 @@ test('storage edits update only the selected key and reject invalid JSON or stal
   )
   assert.equal(local.get('other'), '')
   local.set('other', 'keep')
-  const deletion = {
+  const deletion: ContentRequest = {
     type: 'dev-sideboard:delete-storage',
     area: 'local',
     key: 'other',

@@ -26,7 +26,7 @@ export default defineConfig([
     'node_modules/**',
   ]),
   {
-    files: ['src/**/*.ts'],
+    files: ['src/**/*.ts', 'tests/**/*.ts'],
     extends: [js.configs.recommended, tseslint.configs.recommended],
     languageOptions: { globals: globals.browser },
     rules: {
@@ -45,7 +45,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['tests/**/*.js', '*.mjs'],
+    files: ['*.mjs'],
     extends: [js.configs.recommended],
     languageOptions: { globals: globals.node },
     rules: {

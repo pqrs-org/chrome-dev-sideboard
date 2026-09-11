@@ -1,10 +1,9 @@
-'use strict'
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const { runModule } = require('./helpers/run-module.js')
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { runModule } from './helpers/run-module.js'
 const setup = () => {
   let documentId = 'doc'
-  let cookies = [
+  let cookies: chrome.cookies.Cookie[] = [
     {
       name: 'session',
       value: 'old',
@@ -18,8 +17,8 @@ const setup = () => {
       session: true,
     },
   ]
-  const writes = []
-  const queries = []
+  const writes: chrome.cookies.SetDetails[] = []
+  const queries: chrome.cookies.GetAllDetails[] = []
   const context = {
     URL,
     chrome: {
@@ -31,7 +30,7 @@ const setup = () => {
           { id: 'normal', tabIds: [2] },
           { id: 'private', tabIds: [1] },
         ],
-        getAll: async (query) => {
+        getAll: async (query: chrome.cookies.GetAllDetails) => {
           queries.push(query)
           return cookies.filter(
             (c) => Boolean(c.partitionKey) === Boolean(query.partitionKey),
@@ -43,17 +42,14 @@ const setup = () => {
             hasCrossSiteAncestor: false,
           },
         }),
-        set: async (details) => {
+        set: async (details: chrome.cookies.SetDetails) => {
           writes.push(details)
           return details
         },
       },
     },
   }
-  const { ExtensionCookies } = runModule(
-    require.resolve('../.test-build/src/cookie-store.js'),
-    context,
-  )
+  const { ExtensionCookies } = runModule('../src/cookie-store.js', context)
   const api = ExtensionCookies
   return {
     api,
@@ -62,13 +58,15 @@ const setup = () => {
     get cookies() {
       return cookies
     },
-    setDocument: (value) => {
+    setDocument: (value: string) => {
       documentId = value
     },
-    setCookies: (value) => {
+    setCookies: (value: chrome.cookies.Cookie[]) => {
       cookies = value
     },
-    edit: (cookie = cookies[0]) => ({
+    edit: (cookie = cookies[0]): StorageEdit => ({
+      tabId: 1,
+      area: 'cookie',
       documentId: 'doc',
       key: api.identity(cookie),
       expectedCookie: api.fingerprint(cookie),
@@ -111,7 +109,7 @@ test('same-name cookies are distinguished by path and partition and keep expiry'
   assert.equal(t.writes[0].domain, '.example.com')
   assert.equal(t.writes[0].path, '/path')
   assert.equal(t.writes[0].expirationDate, 2000000000)
-  assert.equal(t.writes[0].partitionKey.topLevelSite, 'https://example.com')
+  assert.equal(t.writes[0].partitionKey?.topLevelSite, 'https://example.com')
 })
 test('cookie edits reject changed, expired and navigated state', async () => {
   const t = setup()
@@ -147,7 +145,7 @@ test('cookie deletion expires only the selected domain/path/partition tuple', as
   assert.equal(t.writes[0].domain, '.example.com')
   assert.equal(t.writes[0].path, '/path')
   assert.equal(t.writes[0].storeId, 'private')
-  assert.equal(t.writes[0].partitionKey.topLevelSite, 'https://example.com')
+  assert.equal(t.writes[0].partitionKey?.topLevelSite, 'https://example.com')
   assert.equal(t.writes[0].expirationDate, 1)
   target.value = 'updated'
   await assert.rejects(t.api.write(1, edit, true), /changed or expired/)

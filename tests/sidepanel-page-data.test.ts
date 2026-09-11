@@ -1,30 +1,41 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const { runModule } = require('./helpers/run-module.js')
+import { required, type SendArgs, type MessageSender } from './helpers/mocks.js'
+type Listener = (message: { type: string }, sender: MessageSender) => void
+type CookieSnapshot = Awaited<
+  ReturnType<typeof import('../src/cookie-store.js').ExtensionCookies.read>
+>
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { runModule } from './helpers/run-module.js'
 const tick = () => new Promise(setImmediate)
 
 const setup = () => {
   let documentId = 'doc-1'
-  const listeners = new Set()
+  const listeners = new Set<Listener>()
   const runtime = {
     id: 'extension',
     onMessage: {
-      addListener: (fn) => listeners.add(fn),
-      removeListener: (fn) => listeners.delete(fn),
+      addListener: (fn: Listener) => listeners.add(fn),
+      removeListener: (fn: Listener) => listeners.delete(fn),
     },
   }
-  const sent = []
+  const sent: SendArgs[] = []
   const tabs = {
-    sendMessage: async (...args) => {
+    sendMessage: async (
+      ...args: SendArgs
+    ): Promise<MetadataSnapshot | StorageSnapshot> => {
       sent.push(args)
       return { local: [], session: [] }
     },
   }
   const cookies = {
-    read: async () => ({ documentId, cookies: [] }),
+    read: async (): Promise<CookieSnapshot> => ({
+      documentId,
+      url: 'https://example.com/',
+      cookies: [],
+    }),
   }
   const { SidepanelPageData: api } = runModule(
-    require.resolve('../.test-build/src/sidepanel-page-data.js'),
+    '../src/sidepanel-page-data.js',
     {
       chrome: {
         runtime,
@@ -45,7 +56,7 @@ const setup = () => {
     tabs,
     cookies,
     listeners,
-    setDocument: (id) => {
+    setDocument: (id: string) => {
       documentId = id
     },
   }
@@ -53,7 +64,7 @@ const setup = () => {
 
 test('side panel rejects a snapshot that finishes after navigation', async () => {
   const s = setup()
-  let finish
+  let finish!: (value: MetadataSnapshot | StorageSnapshot) => void
   s.tabs.sendMessage = () =>
     new Promise((resolve) => {
       finish = resolve
@@ -63,13 +74,13 @@ test('side panel rejects a snapshot that finishes after navigation', async () =>
   s.setDocument('doc-2')
   finish({ openGraph: [{ key: 'og:description', value: 'old page' }] })
   const result = await read
-  assert.match(result.error, /page changed/)
+  assert.match(required(result.error), /page changed/)
   assert.equal(result.openGraph, undefined)
 })
 
 test('metadata notifications require the extension, main frame and current document; commands are not accepted', async () => {
   const s = setup()
-  const changed = []
+  const changed: number[] = []
   const stop = s.api.observeMetadataChanges((tabId) => changed.push(tabId))
   const listener = [...s.listeners][0]
   const sender = {
@@ -114,7 +125,20 @@ test('Cookies remain readable without a content script and reject navigation dur
   s.tabs.sendMessage = () => {
     throw new Error('No content script')
   }
-  const cookies = [{ name: 'sid', value: 'value' }]
+  const cookies: chrome.cookies.Cookie[] = [
+    {
+      name: 'sid',
+      value: 'value',
+      domain: 'example.com',
+      path: '/',
+      storeId: '0',
+      hostOnly: true,
+      secure: true,
+      httpOnly: false,
+      sameSite: 'lax',
+      session: true,
+    },
+  ]
   s.cookies.read = async () => ({
     documentId: 'doc-1',
     url: 'https://example.com/path',
@@ -125,7 +149,7 @@ test('Cookies remain readable without a content script and reject navigation dur
   assert.equal(snapshot.origin, 'https://example.com')
   assert.deepEqual(snapshot.cookies, cookies)
   assert.equal(snapshot.error, undefined)
-  let finish
+  let finish!: (value: CookieSnapshot) => void
   s.cookies.read = () =>
     new Promise((resolve) => {
       finish = resolve
@@ -134,7 +158,7 @@ test('Cookies remain readable without a content script and reject navigation dur
   s.setDocument('doc-2')
   finish({ documentId: 'doc-1', url: 'https://example.com/', cookies })
   const stale = await read
-  assert.match(stale.error, /page changed/)
+  assert.match(required(stale.error), /page changed/)
   assert.equal(stale.cookies, undefined)
 })
 

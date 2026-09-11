@@ -1,9 +1,11 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const { runModule } = require('./helpers/run-module.js')
+type KeyEvent = Pick<KeyboardEvent, 'key' | 'preventDefault'> &
+  Partial<Pick<KeyboardEvent, 'ctrlKey' | 'altKey' | 'metaKey' | 'shiftKey'>>
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { runModule } from './helpers/run-module.js'
 
-const setup = (mode) => {
-  let keydown
+const setup = (mode: 'storage' | 'cookies') => {
+  let keydown!: (event: KeyEvent) => void
   let renders = 0
   const state = {
     panelState: {
@@ -23,10 +25,10 @@ const setup = (mode) => {
         ],
       },
     },
-    editState: { current: null },
+    editState: { current: null as Partial<StorageEdit> | null },
     panelElements: {
       entryList: {
-        addEventListener: (_, handler) => {
+        addEventListener: (_: string, handler: typeof keydown) => {
           keydown = handler
         },
         querySelector: () => ({ scrollIntoView() {} }),
@@ -35,7 +37,7 @@ const setup = (mode) => {
     },
   }
   const { SidepanelStorage } = runModule(
-    require.resolve('../.test-build/src/sidepanel-storage.js'),
+    '../src/sidepanel-storage.js',
     {},
     {
       './sidepanel-state.js': { SidepanelState: state },
@@ -44,7 +46,7 @@ const setup = (mode) => {
     },
   )
   SidepanelStorage.initializeStorageList(() => renders++)
-  const press = (key, extra = {}) => {
+  const press = (key: string, extra: Partial<KeyEvent> = {}) => {
     let prevented = false
     keydown({
       key,
@@ -58,7 +60,7 @@ const setup = (mode) => {
   return { state, press, renders: () => renders }
 }
 
-for (const mode of ['storage', 'cookies']) {
+for (const mode of ['storage', 'cookies'] as const) {
   test(`${mode} arrow navigation follows visible entries, stops at boundaries, and pauses during edits`, () => {
     const s = setup(mode)
     assert.equal(s.press('ArrowDown'), true)

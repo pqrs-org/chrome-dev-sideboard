@@ -1,22 +1,26 @@
-'use strict'
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const { runModule } = require('./helpers/run-module.js')
+import { required, type TestFetch, type FetchOptions } from './helpers/mocks.js'
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { runModule } from './helpers/run-module.js'
 const tick = () => new Promise(setImmediate)
 const setup = (
-  fetch,
-  page = { tabId: 7, documentId: 'doc-1', origin: 'https://page.example' },
-  readPageImage,
+  fetch: TestFetch,
+  page: ImagePage | null = {
+    tabId: 7,
+    documentId: 'doc-1',
+    origin: 'https://page.example',
+  },
+  readPageImage?: typeof import('../src/sidepanel-image-access.js').readPageImage,
 ) => {
-  const created = [],
-    revoked = [],
-    timers = new Set()
+  const created: Blob[] = [],
+    revoked: string[] = [],
+    timers = new Set<() => void>()
   class TestURL extends URL {
-    static createObjectURL(blob) {
+    static override createObjectURL(blob: Blob) {
       created.push(blob)
       return `blob:${created.length}`
     }
-    static revokeObjectURL(url) {
+    static override revokeObjectURL(url: string) {
       revoked.push(url)
     }
   }
@@ -25,16 +29,16 @@ const setup = (
     Blob,
     AbortController,
     fetch,
-    setTimeout(fn) {
+    setTimeout(fn: () => void) {
       timers.add(fn)
       return fn
     },
-    clearTimeout(fn) {
+    clearTimeout(fn: () => void) {
       timers.delete(fn)
     },
   }
   const { ImagePreviews } = runModule(
-    require.resolve('../.test-build/src/sidepanel-image-previews.js'),
+    '../src/sidepanel-image-previews.js',
     context,
     {
       './sidepanel-image-access.js': {
@@ -44,22 +48,25 @@ const setup = (
     },
   )
   return {
-    batch: ImagePreviews.createBatch(page),
+    batch: ImagePreviews.createBatch(page ?? undefined),
     created,
     revoked,
     timers,
   }
 }
-const response = (body = 'image', headers = {}) =>
+const response = (
+  body: BodyInit = 'image',
+  headers: Record<string, string> = {},
+) =>
   new Response(body, { headers: { 'content-type': 'image/png', ...headers } })
 test('page image previews only expose revocable Blob URLs', async () => {
-  let options
+  let options!: FetchOptions
   const s = setup(async (url, init) => {
     options = init
     return response()
   })
-  const ready = [],
-    failed = []
+  const ready: string[] = [],
+    failed: string[] = []
   s.batch.load(
     'https://example.com/image',
     (url) => ready.push(url),
@@ -109,7 +116,7 @@ test('images reject HTTP, URL credentials and oversized streamed bodies', async 
       }),
     ),
   ]) {
-    const errors = []
+    const errors: string[] = []
     const limited = setup(async () => result)
     limited.batch.load(
       'https://example.com/a',
@@ -122,8 +129,9 @@ test('images reject HTTP, URL credentials and oversized streamed bodies', async 
   }
 })
 test('image concurrency, count, disposal and timeout are bounded', async () => {
-  const pending = [],
-    errors = []
+  const pending: { resolve: (value: Response) => void; signal: AbortSignal }[] =
+      [],
+    errors: string[] = []
   const s = setup(
     (url, options) =>
       new Promise((resolve, reject) => {
@@ -195,7 +203,7 @@ test('preview loading preserves MIME types without filtering formats before imag
 })
 
 test('individual reloads revalidate only their image, release old blobs, and reuse the image slot', async () => {
-  const requests = []
+  const requests: (FetchOptions & { url: string })[] = []
   const s = setup(async (url, init) => {
     requests.push({ url, ...init })
     return response('image')
@@ -209,19 +217,19 @@ test('individual reloads revalidate only their image, release old blobs, and reu
   await tick()
   assert.ok(requests.every((request) => request.cache === undefined))
   for (let i = 0; i < 8; i++) {
-    reload()
+    required(reload)()
     await tick()
-    assert.equal(requests.at(-1).url, 'https://example.com/first')
-    assert.equal(requests.at(-1).cache, 'no-cache')
-    assert.equal(requests.at(-1).credentials, 'omit')
-    assert.equal(requests.at(-1).targetAddressSpace, 'public')
+    assert.equal(required(requests.at(-1)).url, 'https://example.com/first')
+    assert.equal(required(requests.at(-1)).cache, 'no-cache')
+    assert.equal(required(requests.at(-1)).credentials, 'omit')
+    assert.equal(required(requests.at(-1)).targetAddressSpace, 'public')
   }
   assert.equal(requests.length, 10)
   assert.equal(s.revoked.length, 8)
   assert.ok(!s.revoked.includes('blob:2'), 'the other image stays usable')
   s.batch.dispose()
   assert.equal(new Set(s.revoked).size, 10)
-  reload()
+  required(reload)()
   assert.equal(requests.length, 10)
 })
 
@@ -231,8 +239,10 @@ test('same-origin failures never fall back; other origins use public-only extens
     documentId: 'doc-1',
     origin: 'https://internal.example',
   }
-  const direct = [],
-    viaPage = []
+  const direct: { url: string; options: FetchOptions }[] = [],
+    viaPage: Parameters<
+      typeof import('../src/sidepanel-image-access.js').readPageImage
+    >[] = []
   const s = setup(
     async (url, options) => {
       direct.push({ url, options })
@@ -244,7 +254,7 @@ test('same-origin failures never fall back; other origins use public-only extens
       throw new Error('Page request rejected')
     },
   )
-  const errors = []
+  const errors: string[] = []
   s.batch.load('https://internal.example/image', assert.fail, (error) =>
     errors.push(error),
   )
@@ -264,7 +274,7 @@ test('same-origin failures never fall back; other origins use public-only extens
 
 test('missing inspected document fails without fetching from the panel', async () => {
   const s = setup(() => assert.fail('unexpected fetch'), null)
-  const errors = []
+  const errors: string[] = []
   s.batch.load('https://example.com/image', assert.fail, (error) =>
     errors.push(error),
   )

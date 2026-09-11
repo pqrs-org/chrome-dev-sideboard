@@ -1,34 +1,37 @@
-'use strict'
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const fs = require('node:fs')
-const { runModule } = require('./helpers/run-module.js')
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import { runModule } from './helpers/run-module.js'
 
-const event = () => {
-  let callback
+const event = <Args extends unknown[]>() => {
+  let callback!: (...args: Args) => void
   return {
-    addListener(fn) {
+    addListener(fn: typeof callback) {
       callback = fn
     },
-    emit(...args) {
+    emit(...args: Args) {
       callback(...args)
     },
   }
 }
-const worker = (stored) => {
+const worker = (stored: Record<string, NetworkState>) => {
   const api = {
     sidePanel: { setPanelBehavior: async () => {} },
     storage: {
       session: {
-        get: async (key) => ({ [key]: structuredClone(stored[key]) }),
-        set: async (values) => Object.assign(stored, structuredClone(values)),
-        remove: async (key) => {
+        get: async (key: string) => ({ [key]: structuredClone(stored[key]) }),
+        set: async (values: Record<string, NetworkState>) =>
+          Object.assign(stored, structuredClone(values)),
+        remove: async (key: string) => {
           delete stored[key]
         },
       },
     },
-    tabs: { onRemoved: event(), onReplaced: event() },
-    webNavigation: { onCommitted: event() },
+    tabs: {
+      onRemoved: event<[number]>(),
+      onReplaced: event<[number, number]>(),
+    },
+    webNavigation: { onCommitted: event<[NetworkDetails]>() },
     webRequest: Object.fromEntries(
       [
         'onBeforeRequest',
@@ -36,10 +39,10 @@ const worker = (stored) => {
         'onBeforeRedirect',
         'onCompleted',
         'onErrorOccurred',
-      ].map((name) => [name, event()]),
+      ].map((name) => [name, event<[NetworkDetails]>()]),
     ),
   }
-  runModule(require.resolve('../.test-build/src/background.js'), {
+  runModule('../src/background.js', {
     chrome: api,
     console,
   })
@@ -47,7 +50,9 @@ const worker = (stored) => {
 }
 
 test('manifest uses passive network permissions and opens a side panel', () => {
-  const manifest = require('../build/manifest.json')
+  const manifest: chrome.runtime.ManifestV3 = JSON.parse(
+    fs.readFileSync(require.resolve('../../build/manifest.json'), 'utf8'),
+  )
   assert.equal(manifest.minimum_chrome_version, '142')
   assert.deepEqual(manifest.permissions, [
     'tabs',
@@ -57,22 +62,22 @@ test('manifest uses passive network permissions and opens a side panel', () => {
     'storage',
     'cookies',
   ])
-  assert.equal(manifest.action.default_popup, undefined)
-  assert.equal(manifest.content_scripts.length, 1)
-  assert.equal(manifest.content_scripts[0].world, 'ISOLATED')
-  assert.notEqual(manifest.content_scripts[0].all_frames, true)
-  assert.deepEqual(manifest.content_scripts[0].js, [
+  assert.equal(manifest.action!.default_popup, undefined)
+  assert.equal(manifest.content_scripts!.length, 1)
+  assert.equal(manifest.content_scripts![0].world, 'ISOLATED')
+  assert.notEqual(manifest.content_scripts![0].all_frames, true)
+  assert.deepEqual(manifest.content_scripts![0].js, [
     'src/page-content-script.js',
   ])
   assert.ok(
     fs.existsSync(
-      require.resolve(`../build/${manifest.side_panel.default_path}`),
+      require.resolve(`../../build/${manifest.side_panel!.default_path}`),
     ),
   )
 })
 
 test('worker serializes network events, restores session totals, and cleans up closed tabs', async () => {
-  const stored = {}
+  const stored: Record<string, NetworkState> = {}
   let api = worker(stored)
   const d = {
     tabId: 1,

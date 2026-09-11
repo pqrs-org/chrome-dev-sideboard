@@ -1,94 +1,113 @@
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const { runModule } = require('./helpers/run-module.js')
+import { required, type TestFetch, type FetchOptions } from './helpers/mocks.js'
+type ConnectOptions = { name: string; documentId: string }
+type Port = {
+  onMessage: ReturnType<typeof event<[unknown]>>
+  onDisconnect: ReturnType<typeof event<[]>>
+  name?: string
+  sender?: Pick<chrome.runtime.MessageSender, 'id' | 'url'>
+  disconnect: () => void
+  postMessage: (message: unknown) => void
+}
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { runModule } from './helpers/run-module.js'
 const tick = () => new Promise(setImmediate)
-const event = () => {
-  const handlers = new Set()
+const event = <Args extends unknown[]>() => {
+  const handlers = new Set<(...args: Args) => void>()
   return {
-    addListener: (fn) => handlers.add(fn),
-    removeListener: (fn) => handlers.delete(fn),
-    fire: (...args) => [...handlers].forEach((fn) => fn(...args)),
+    addListener: (fn: (...args: Args) => void) => handlers.add(fn),
+    removeListener: (fn: (...args: Args) => void) => handlers.delete(fn),
+    fire: (...args: Args) => [...handlers].forEach((fn) => fn(...args)),
   }
 }
-const setup = (fetch) => {
-  let accept
-  const connections = []
+const setup = (fetch: TestFetch) => {
+  let accept!: (port: Partial<Port>) => void
+  const connections: {
+    tabId: number
+    options: ConnectOptions
+    disconnect: () => void
+  }[] = []
   const origin = 'https://internal.example'
-  runModule(
-    require.resolve('../.test-build/src/page-content-script-image.js'),
-    {
-      fetch,
-      Blob,
-      AbortController,
-      btoa,
-      setTimeout,
-      clearTimeout,
-      location: { origin },
-      chrome: {
-        runtime: {
-          id: 'extension',
-          getURL: (path) => `chrome-extension://extension/${path}`,
-          onConnect: {
-            addListener: (fn) => {
-              accept = fn
+  runModule('../src/page-content-script-image.js', {
+    fetch,
+    Blob,
+    AbortController,
+    btoa,
+    setTimeout,
+    clearTimeout,
+    location: { origin },
+    chrome: {
+      runtime: {
+        id: 'extension',
+        getURL: (path: string) => `chrome-extension://extension/${path}`,
+        onConnect: {
+          addListener: (fn: typeof accept) => {
+            accept = fn
+          },
+        },
+      },
+    },
+  })
+  const { readPageImage } = runModule('../src/sidepanel-image-access.js', {
+    Blob,
+    atob,
+    chrome: {
+      runtime: {},
+      tabs: {
+        connect: (tabId: number, options: ConnectOptions) => {
+          const panel: Port = {
+            onMessage: event<[unknown]>(),
+            onDisconnect: event<[]>(),
+            disconnect() {},
+            postMessage() {},
+          }
+          const content: Port = {
+            disconnect() {},
+            postMessage() {},
+            onMessage: event<[unknown]>(),
+            onDisconnect: event<[]>(),
+            name: options.name,
+            sender: {
+              id: 'extension',
+              url: 'chrome-extension://extension/src/sidepanel.html',
             },
-          },
+          }
+          let closed = false
+          const disconnect = () => {
+            if (closed) {
+              return
+            }
+            closed = true
+            panel.onDisconnect.fire()
+            content.onDisconnect.fire()
+          }
+          for (const [from, to] of [
+            [panel, content],
+            [content, panel],
+          ]) {
+            from.disconnect = disconnect
+            from.postMessage = (message) => {
+              const serialized = JSON.parse(JSON.stringify(message))
+              queueMicrotask(() => {
+                if (!closed) {
+                  to.onMessage.fire(serialized)
+                }
+              })
+            }
+          }
+          connections.push({ tabId, options, disconnect })
+          queueMicrotask(() => accept(content))
+          return panel
         },
       },
     },
-  )
-  const { readPageImage } = runModule(
-    require.resolve('../.test-build/src/sidepanel-image-access.js'),
-    {
-      Blob,
-      atob,
-      chrome: {
-        runtime: {},
-        tabs: {
-          connect: (tabId, options) => {
-            const panel = { onMessage: event(), onDisconnect: event() }
-            const content = {
-              onMessage: event(),
-              onDisconnect: event(),
-              name: options.name,
-              sender: {
-                id: 'extension',
-                url: 'chrome-extension://extension/src/sidepanel.html',
-              },
-            }
-            let closed = false
-            const disconnect = () => {
-              if (closed) {
-                return
-              }
-              closed = true
-              panel.onDisconnect.fire()
-              content.onDisconnect.fire()
-            }
-            for (const [from, to] of [
-              [panel, content],
-              [content, panel],
-            ]) {
-              from.disconnect = disconnect
-              from.postMessage = (message) => {
-                const serialized = JSON.parse(JSON.stringify(message))
-                queueMicrotask(() => {
-                  if (!closed) {
-                    to.onMessage.fire(serialized)
-                  }
-                })
-              }
-            }
-            connections.push({ tabId, options, disconnect })
-            queueMicrotask(() => accept(content))
-            return panel
-          },
-        },
-      },
-    },
-  )
+  })
   return {
-    read: (url, signal = new AbortController().signal, cache) =>
+    read: (
+      url: string,
+      signal = new AbortController().signal,
+      cache?: RequestCache,
+    ) =>
       readPageImage(
         { tabId: 7, documentId: 'doc-1', origin },
         url,
@@ -101,7 +120,7 @@ const setup = (fetch) => {
 }
 
 test('image bytes use document-pinned extension ports without credentials', async () => {
-  let options
+  let options!: FetchOptions
   const s = setup(async (_url, init) => {
     options = init
     return new Response(new Uint8Array([0, 128, 255]), {
@@ -144,7 +163,7 @@ test('page image requests reject credentials, HTTP, and oversized images', async
 })
 
 test('discarding a preview or disconnecting its document aborts the page fetch', async () => {
-  let fetchSignal
+  let fetchSignal!: AbortSignal
   const s = setup(
     (_url, options) =>
       new Promise((_resolve, reject) => {
@@ -162,7 +181,7 @@ test('discarding a preview or disconnecting its document aborts the page fetch',
   assert.equal(fetchSignal.aborted, true)
   const next = s.read('https://internal.example/image')
   await tick()
-  s.connections.at(-1).disconnect()
+  required(s.connections.at(-1)).disconnect()
   await assert.rejects(next, /disconnected/)
   assert.equal(fetchSignal.aborted, true)
 })

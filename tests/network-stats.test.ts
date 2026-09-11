@@ -1,16 +1,16 @@
-'use strict'
-const test = require('node:test')
-const assert = require('node:assert/strict')
-const { normalizeEvent, reduce, formatBytes } =
-  require('../.test-build/src/network-stats.js').PageNetworkStats
+import { required } from './helpers/mocks.js'
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { PageNetworkStats } from '../src/network-stats.js'
+const { normalizeEvent, reduce, formatBytes } = PageNetworkStats
 
 const tracker = () => {
-  let state
+  let state: NetworkState | null | undefined
   return {
     get state() {
-      return state
+      return required(state)
     },
-    send(kind, values = {}) {
+    send(kind: NetworkKind, values: Partial<NetworkDetails> = {}) {
       state = reduce(
         state,
         normalizeEvent(kind, {
@@ -23,11 +23,11 @@ const tracker = () => {
           ...values,
         }),
       )
-      return state
+      return required(state)
     },
   }
 }
-const header = (name, value) => ({ name, value })
+const header = (name: string, value: string) => ({ name, value })
 
 test('measures completed request chains and keeps HTTP and connection errors separate', () => {
   const t = tracker()
@@ -131,10 +131,12 @@ test('observation can begin mid-page and survives JSON session serialization', (
   const t = tracker()
   t.send('start', { type: 'xmlhttprequest' })
   assert.equal(t.state.scope, 'partial')
-  const state = JSON.parse(JSON.stringify(t.state))
+  const state: NetworkState = JSON.parse(JSON.stringify(t.state))
   reduce(
     state,
     normalizeEvent('complete', {
+      tabId: 1,
+      url: 'https://example.com/',
       requestId: '1',
       timeStamp: 1100,
       statusCode: 200,
@@ -146,6 +148,8 @@ test('observation can begin mid-page and survives JSON session serialization', (
 
 test('normalized measurements omit credentials and raw header data', () => {
   const normalized = normalizeEvent('headers', {
+    tabId: 1,
+    timeStamp: 1000,
     type: 'main_frame',
     url: 'https://user:password@example.com/path#fragment',
     statusCode: 401,
@@ -185,7 +189,7 @@ test('failure details retain sanitized final URLs and codes, cap history, and re
   assert.equal(t.state.failureDetails[99].reason, 'net::ERR_CONNECTION_REFUSED')
   assert.equal(JSON.stringify(t.state).includes('secret'), false)
   t.send('start', { requestId: 'new-page' })
-  assert.deepEqual(t.state.failureDetails, [])
+  assert.deepEqual([...t.state.failureDetails], [])
 })
 
 for (const error of [
@@ -206,7 +210,7 @@ for (const error of [
     assert.deepEqual(t.state.pending, {})
     assert.equal(t.state.networkErrors, 0)
     assert.equal(t.state.httpErrors, 0)
-    assert.deepEqual(t.state.failureDetails, [])
+    assert.deepEqual([...t.state.failureDetails], [])
     assert.equal(t.state.completed, 0)
     assert.equal(t.state.cached, 0)
     assert.equal(t.state.durationCount, 0)

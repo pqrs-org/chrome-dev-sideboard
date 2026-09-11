@@ -8,7 +8,7 @@ Inspect page information, network activity, storage, and cookies in Chrome’s s
 ## Features
 
 - Full page titles, following the active tab in each window
-- Canonical URLs, descriptions, and Open Graph or Twitter Card metadata with image previews
+- Canonical URLs, descriptions, and Open Graph metadata, including image previews
 - Request counts, error details, durations, and response size estimates
 - Inspect, edit, and delete Local Storage, Session Storage, and Cookies, with filtering, JSON tree navigation, and raw text viewing
 
@@ -25,7 +25,7 @@ Requires Chrome 142 or later. Run `pnpm install --frozen-lockfile` and `make bui
 
 Network monitoring starts automatically. Measurements reset on reload or navigation to a new document; switching tabs preserves them. Durations include download time. Response sizes are estimates based on available Content-Length headers, not total network usage. Chrome’s limitations mean some requests are not counted.
 
-The **Page** tab updates when metadata changes. Open Graph takes priority; Twitter Card is shown when Open Graph tags are absent.
+The **Page** tab updates when metadata changes.
 
 **Storage** and **Cookies** refresh automatically, pausing while you edit. Both JSON and plain-text values can be edited. **Save** and **Delete** change the selected website storage item or browser cookie; changes made by the website since inspection are checked before applying an edit.
 
@@ -35,7 +35,7 @@ Protecting website data is a design priority. Inspecting Local Storage, Session 
 
 Features are omitted when a safe implementation cannot be established within the extension’s design. Fetch/XHR response-body capture is intentionally excluded to avoid exposing captured responses to unrelated page scripts.
 
-Image previews make requests to HTTPS URLs specified by the page. Same-origin images are fetched through the inspected page; other origins are restricted to the public network. Image hosts receive the requested URL and your IP address, but preview requests omit browser credentials, including cookies. Same-origin image requests reject redirects. Image count, response size, and request duration are limited.
+Image previews make requests to HTTPS URLs specified by the page. All images are fetched through the inspected page, following its CORS and local-network access restrictions. Cross-origin previews require the image server to allow CORS. Image hosts receive the requested URL and your IP address, but preview requests omit browser credentials, including cookies. Image requests reject redirects. Image count, response size, and request duration are limited.
 
 See the [privacy policy](PRIVACY.md) for data handling and retention details.
 

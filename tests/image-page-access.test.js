@@ -100,7 +100,7 @@ const setup = (fetch) => {
   }
 }
 
-test('same-origin image bytes use document-pinned extension ports without credentials', async () => {
+test('image bytes use document-pinned extension ports without credentials', async () => {
   let options
   const s = setup(async (_url, init) => {
     options = init
@@ -115,7 +115,7 @@ test('same-origin image bytes use document-pinned extension ports without creden
   )
   assert.deepEqual([...new Uint8Array(await blob.arrayBuffer())], [0, 128, 255])
   assert.equal(blob.type, 'image/png')
-  assert.equal(options.mode, 'same-origin')
+  assert.equal(options.mode, 'cors')
   assert.equal(options.redirect, 'error')
   assert.equal(options.credentials, 'omit')
   assert.equal(options.cache, 'no-cache')
@@ -124,7 +124,7 @@ test('same-origin image bytes use document-pinned extension ports without creden
   assert.equal(s.connections[0].options.documentId, 'doc-1')
 })
 
-test('page image requests reject other origins, credentials, HTTP, and oversized images', async () => {
+test('page image requests reject credentials, HTTP, and oversized images', async () => {
   let calls = 0
   const s = setup(async () => {
     calls++
@@ -133,12 +133,10 @@ test('page image requests reject other origins, credentials, HTTP, and oversized
     })
   })
   for (const url of [
-    'https://other.example/image',
-    'https://internal.example:444/image',
     'http://internal.example/image',
     'https://user:secret@internal.example/image',
   ]) {
-    await assert.rejects(s.read(url), /same origin|HTTPS image URL/)
+    await assert.rejects(s.read(url), /HTTPS image URL/)
   }
   assert.equal(calls, 0)
   await assert.rejects(s.read('https://internal.example/image'), /too large/)
@@ -185,5 +183,30 @@ test('image content ports only accept the extension side panel', () => {
       },
     })
     assert.equal(disconnected, true)
+  }
+})
+
+test('cross-origin images use page CORS and propagate rejection without retries', async () => {
+  const calls = []
+  const s = setup(async (url, options) => {
+    calls.push({ url, options })
+    if (url.includes('blocked')) {
+      throw new TypeError('Failed to fetch')
+    }
+    return new Response('image')
+  })
+  assert.equal(
+    await (await s.read('https://cdn.example/image')).text(),
+    'image',
+  )
+  await assert.rejects(
+    s.read('https://blocked.example/image'),
+    /Failed to fetch/,
+  )
+  assert.equal(calls.length, 2)
+  for (const { options } of calls) {
+    assert.equal(options.mode, 'cors')
+    assert.equal(options.credentials, 'omit')
+    assert.equal(options.redirect, 'error')
   }
 })

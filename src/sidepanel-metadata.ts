@@ -12,11 +12,10 @@ const renderMetadata = () => {
   previewBatch.dispose()
   const data = panelState.metadata
   previewBatch = ImagePreviews.createBatch(
-    panelState.tabId !== null && data?.documentId && data.pageUrl
+    panelState.tabId !== null && data?.documentId
       ? {
           tabId: panelState.tabId,
           documentId: data.documentId,
-          origin: new URL(data.pageUrl).origin,
         }
       : undefined,
   )

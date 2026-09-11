@@ -138,15 +138,13 @@ test('Cookies remain readable without a content script and reject navigation dur
   assert.equal(stale.cookies, undefined)
 })
 
-test('image routing uses Chrome document URL instead of page-controlled metadata URLs', async () => {
+test('metadata requests retain the Chrome document ID', async () => {
   const s = setup()
   s.tabs.sendMessage = async () => ({
-    pageUrl: 'https://attacker.example/',
     documentId: 'forged',
     baseUrl: 'https://cdn.example/',
   })
   const metadata = await s.api.readMetadata(1)
-  assert.equal(metadata.pageUrl, 'https://example.com/page')
   assert.equal(metadata.documentId, 'doc-1')
   assert.equal(metadata.baseUrl, 'https://cdn.example/')
 })

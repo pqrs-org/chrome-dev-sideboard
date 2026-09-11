@@ -3,7 +3,11 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const { runModule } = require('./helpers/run-module.js')
 const tick = () => new Promise(setImmediate)
-const setup = (fetch, page, readPageImage) => {
+const setup = (
+  fetch,
+  page = { tabId: 7, documentId: 'doc-1' },
+  readPageImage,
+) => {
   const created = [],
     revoked = [],
     timers = new Set()
@@ -29,10 +33,26 @@ const setup = (fetch, page, readPageImage) => {
       timers.delete(fn)
     },
   }
+  const { fetchImageBlob } = runModule(
+    require.resolve('../.test-build/src/image-fetch.js'),
+    context,
+  )
   const { ImagePreviews } = runModule(
     require.resolve('../.test-build/src/sidepanel-image-previews.js'),
     context,
-    readPageImage ? { './sidepanel-image-access.js': { readPageImage } } : {},
+    {
+      './sidepanel-image-access.js': {
+        readPageImage:
+          readPageImage ||
+          ((_page, url, cache, signal) =>
+            fetchImageBlob(url, {
+              mode: 'cors',
+              redirect: 'error',
+              cache,
+              signal,
+            })),
+      },
+    },
   )
   return {
     batch: ImagePreviews.createBatch(page),
@@ -43,7 +63,7 @@ const setup = (fetch, page, readPageImage) => {
 }
 const response = (body = 'image', headers = {}) =>
   new Response(body, { headers: { 'content-type': 'image/png', ...headers } })
-test('images omit credentials, allow redirects within request restrictions and only expose revocable Blob URLs', async () => {
+test('page image previews only expose revocable Blob URLs', async () => {
   let options
   const s = setup(async (url, init) => {
     options = init
@@ -58,8 +78,8 @@ test('images omit credentials, allow redirects within request restrictions and o
   )
   await tick()
   assert.equal(options.credentials, 'omit')
-  assert.equal(options.targetAddressSpace, 'public')
-  assert.equal(options.redirect, undefined)
+  assert.equal(options.targetAddressSpace, undefined)
+  assert.equal(options.redirect, 'error')
   assert.equal(options.referrerPolicy, undefined)
   assert.equal(options.cache, undefined)
   assert.deepEqual(ready, ['blob:1'])
@@ -205,7 +225,7 @@ test('individual reloads revalidate only their image, release old blobs, and reu
     assert.equal(requests.at(-1).url, 'https://example.com/first')
     assert.equal(requests.at(-1).cache, 'no-cache')
     assert.equal(requests.at(-1).credentials, 'omit')
-    assert.equal(requests.at(-1).targetAddressSpace, 'public')
+    assert.equal(requests.at(-1).targetAddressSpace, undefined)
   }
   assert.equal(requests.length, 10)
   assert.equal(s.revoked.length, 8)
@@ -216,7 +236,7 @@ test('individual reloads revalidate only their image, release old blobs, and reu
   assert.equal(requests.length, 10)
 })
 
-test('same-origin failures never fall back to privileged fetch; other origins stay public-only', async () => {
+test('all origins use the page and failures never fall back to privileged fetch', async () => {
   const page = {
     tabId: 7,
     documentId: 'doc-1',
@@ -243,10 +263,23 @@ test('same-origin failures never fall back to privileged fetch; other origins st
   assert.deepEqual(errors, ['Page request rejected'])
   assert.equal(direct.length, 0)
   assert.equal(viaPage[0][0], page)
-  await new Promise((resolve, reject) =>
-    s.batch.load('https://other.example/image', resolve, reject),
+  s.batch.load('https://other.example/image', assert.fail, (error) =>
+    errors.push(error),
   )
-  assert.equal(viaPage.length, 1)
-  assert.equal(direct[0].options.targetAddressSpace, 'public')
+  await tick()
+  assert.equal(viaPage.length, 2)
+  assert.equal(viaPage[1][0], page)
+  assert.equal(direct.length, 0)
+  assert.deepEqual(errors, ['Page request rejected', 'Page request rejected'])
   s.batch.dispose()
+})
+
+test('missing inspected document fails without fetching from the panel', async () => {
+  const s = setup(() => assert.fail('unexpected fetch'), null)
+  const errors = []
+  s.batch.load('https://example.com/image', assert.fail, (error) =>
+    errors.push(error),
+  )
+  await tick()
+  assert.deepEqual(errors, ['Inspected page is unavailable'])
 })

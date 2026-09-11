@@ -22,7 +22,7 @@ const readMetadata = async (tabId: number): Promise<MetadataSnapshot> => {
       { documentId: frame.documentId },
     )
     await getFrame(tabId, frame.documentId)
-    return { ...snapshot, documentId: frame.documentId, pageUrl: frame.url }
+    return { ...snapshot, documentId: frame.documentId }
   } catch (error) {
     return { error: errorMessage(error) }
   }

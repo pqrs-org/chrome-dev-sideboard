@@ -1,5 +1,4 @@
-// Shared by the panel and isolated content script. Callers choose the network
-// policy (public addresses or same-origin without redirects) for their context.
+// Only the isolated content script fetches images; the panel shares these limits.
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024
 export const IMAGE_TIMEOUT_MS = 8000
 

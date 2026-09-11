@@ -1,11 +1,6 @@
 declare module '*.css'
 // Shared types only; no declarations are emitted into the extension.
 
-// Chrome 142's public-network restriction is not yet in TypeScript's DOM library.
-interface RequestInit {
-  targetAddressSpace?: 'public'
-}
-
 type NetworkKind =
   'start' | 'headers' | 'redirect' | 'complete' | 'error' | 'commit'
 interface NetworkDetails {
@@ -91,7 +86,6 @@ interface MetadataEntry {
   values?: string[]
 }
 interface MetadataSnapshot {
-  pageUrl?: string
   documentId?: string
   canonical?: MetadataEntry[]
   openGraph?: MetadataEntry[]
@@ -102,7 +96,6 @@ interface MetadataSnapshot {
 interface ImagePage {
   tabId: number
   documentId: string
-  origin: string
 }
 type ImageReply =
   { ok: true; type: string; data: string } | { ok: false; error: string }

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sample Website — Dev Sideboard Demo</title>
+    <link rel="canonical" href="https://example.com/sample" />
+    <meta property="og:title" content="Sample Website" />
+    <meta
+      property="og:description"
+      content="A fictional sample page for demonstrating Dev Sideboard. All content and data are examples."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Sample Website" />
+    <meta property="og:image" content="cover.svg" />
+    <link rel="icon" href="data:," />
+    <script>
+      // Keep edits made during a screenshot session; seed only missing sample entries.
+      const samples = {
+        workspace: JSON.stringify({
+          name: 'Sample Website',
+          theme: 'light',
+          preferences: { autosave: true, language: 'en' },
+          projects: ['Example A', 'Example B', 'Example C'],
+        }),
+        theme: 'light',
+      }
+      for (const [key, value] of Object.entries(samples)) {
+        if (localStorage.getItem(key) === null) {
+          localStorage.setItem(key, value)
+        }
+      }
+      if (sessionStorage.getItem('draft') === null) {
+        sessionStorage.setItem(
+          'draft',
+          JSON.stringify({ title: 'Sample article', saved: true }),
+        )
+      }
+      if (
+        !document.cookie
+          .split(';')
+          .some((cookie) => cookie.trim().startsWith('preferences='))
+      ) {
+        document.cookie =
+          'preferences={"theme":"light","language":"en","compact":false}; Path=/; SameSite=Strict; Secure'
+      }
+    </script>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #fafbf8;
+        color: #243e34;
+        font: 16px system-ui;
+      }
+      header {
+        padding: 1.25rem 2.5rem;
+        border-bottom: 1px solid #dce4dc;
+        display: flex;
+        justify-content: space-between;
+        font-size: 14px;
+      }
+      main {
+        /* 1280px screenshot minus a roughly 380px side panel. */
+        max-width: 56.25rem;
+        margin-inline: auto;
+        padding: 2rem 2.5rem;
+      }
+      .eyebrow {
+        font-size: 12px;
+        letter-spacing: 3px;
+        color: #648171;
+      }
+      h1 {
+        font: 3rem Georgia;
+        margin: 1rem 0;
+      }
+      p {
+        line-height: 1.8;
+        color: #66766c;
+        max-width: 540px;
+      }
+      .cover {
+        width: 100%;
+        aspect-ratio: 3 / 1;
+        object-fit: cover;
+        object-position: top;
+        border-radius: 8px;
+        display: block;
+        margin-top: 1.5rem;
+      }
+      footer {
+        display: flex;
+        gap: 28px;
+        margin-top: 1.5rem;
+      }
+      footer div {
+        flex: 1;
+        padding-top: 16px;
+        border-top: 1px solid #cedbcf;
+      }
+      small {
+        display: block;
+        color: #788a7b;
+        margin-top: 8px;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <strong>SAMPLE WEBSITE</strong><span>Demo content only</span>
+    </header>
+    <main>
+      <div class="eyebrow">FICTIONAL PAGE · SAMPLE DATA</div>
+      <h1>Lorem ipsum.</h1>
+      <p>
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod
+        tempor incididunt ut labore et dolore magna aliqua.
+      </p>
+      <img class="cover" src="cover.svg" alt="Geometric green mountains" />
+      <footer>
+        <div>Example section<small>Ut enim ad minim veniam.</small></div>
+        <div>
+          Sample content<small>Quis nostrud exercitation ullamco.</small>
+        </div>
+      </footer>
+    </main>
+  </body>
+</html>

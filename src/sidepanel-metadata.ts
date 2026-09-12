@@ -62,7 +62,7 @@ const renderMetadata = () => {
       continue
     }
     const list = document.createElement('dl')
-    const grouped = groupMetadataTags(entries)
+    const grouped = groupMetadataEntries(entries)
     for (const entry of sortMetadata(grouped)) {
       const name = document.createElement('dt')
       name.textContent = entry.key
@@ -167,19 +167,19 @@ const renderMetadata = () => {
   panelElements.metadataView.replaceChildren(...nodes)
 }
 
+// Open Graph display order: og:image, og:title, og:description, then all
+// other keys in alphabetical order (including og:image:* attributes).
+// Twitter Card follows the same order with twitter:* keys.
 // Keep repeated keys in source order (including multiple images).
 const sortMetadata = (entries: MetadataEntry[]) => {
   const priority = (key: string) => {
-    if (key === 'og:image:width' || key === 'og:image:height') {
-      return 3
-    }
-    if (/^(og|twitter):image(?::|$)/.test(key)) {
+    if (key === 'og:image' || key === 'twitter:image') {
       return 0
     }
-    if (/^(og|twitter):title$/.test(key)) {
+    if (key === 'og:title' || key === 'twitter:title') {
       return 1
     }
-    if (/^(og|twitter):description$/.test(key)) {
+    if (key === 'og:description' || key === 'twitter:description') {
       return 2
     }
     return 3
@@ -249,22 +249,24 @@ const metadataImageUrl = (
   return url?.protocol === 'https:' ? url.href : null
 }
 
-const groupMetadataTags = (entries: MetadataEntry[]) => {
+const groupMetadataEntries = (entries: MetadataEntry[]) => {
   const grouped: MetadataEntry[] = []
-  const tags = new Map<string, MetadataEntry & { values: string[] }>()
+  const groups = new Map<string, MetadataEntry>()
   for (const entry of entries) {
     const key = entry.key.toLowerCase()
-    if (!key.endsWith(':tag')) {
+    if (imageUrlKeys.includes(key)) {
       grouped.push(entry)
       continue
     }
-    let group = tags.get(key)
+    let group = groups.get(key)
     if (!group) {
-      group = { ...entry, values: [] }
-      tags.set(key, group)
+      group = { ...entry }
+      groups.set(key, group)
       grouped.push(group)
+    } else {
+      group.values ??= [group.value]
+      group.values.push(entry.value)
     }
-    group.values.push(entry.value)
   }
   return grouped
 }

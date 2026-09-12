@@ -325,6 +325,7 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
     snapshot: {
       openGraph: [
         { key: 'og:z', value: 'last' },
+        { key: 'og:image:type', value: 'image/png' },
         { key: 'og:description', value: 'Long description' },
         { key: 'og:title', value: 'Title' },
         { key: 'og:image', value: 'first.png' },
@@ -332,6 +333,10 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
         { key: 'og:image:height', value: '200' },
         { key: 'og:image', value: 'second.png' },
         { key: 'og:a', value: 'first' },
+        { key: 'OG:A', value: '<b>second</b>' },
+        { key: 'og:a', value: 'first' },
+        { key: 'og:a', value: '' },
+        { key: 'og:image:width', value: '300' },
       ],
     },
   })
@@ -347,10 +352,22 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
       'og:description',
       'og:a',
       'og:image:height',
+      'og:image:type',
       'og:image:width',
       'og:z',
     ],
   )
+  const groupedEntries = elements.get('metadataView').children[3].children
+  assert.deepEqual(JSON.parse(groupedEntries[9].textContent), [
+    'first',
+    '<b>second</b>',
+    'first',
+    '',
+  ])
+  assert.deepEqual(JSON.parse(groupedEntries[15].textContent), ['100', '300'])
+  assert.equal(groupedEntries[5].textContent, 'Title')
+  assert.equal(groupedEntries[1].textContent, 'first.png')
+  assert.equal(groupedEntries[3].textContent, 'second.png')
   elements.get('storageModeButton').listeners.click()
   assert.equal(elements.get('metadataView').hidden, true)
   assert.equal(queries[0].windowId, 7)

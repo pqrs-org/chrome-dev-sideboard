@@ -36,6 +36,7 @@ const panelElements = {
   metadataModeButton: document.getElementById(
     'metadataModeButton',
   ) as HTMLButtonElement,
+  pageView: document.getElementById('pageView') as HTMLElement,
   metadataView: document.getElementById('metadataView') as HTMLElement,
   storageWorkspace: document.getElementById('storageWorkspace') as HTMLElement,
   deleteStorageButton: document.getElementById(

@@ -7,7 +7,6 @@
   }
 
   .metadata-view {
-    overflow: auto;
     padding: 0.75rem;
     background: var(--panel);
 

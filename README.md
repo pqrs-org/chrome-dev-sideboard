@@ -30,7 +30,7 @@ Network monitoring starts automatically. Measurements reset on reload or navigat
 
 **Window** shows the full browser window size; **Viewport** shows the page area in CSS pixels. Edit either row’s dimensions or select previously applied values from their menus, then click **Apply**, which is enabled when valid dimensions differ from the current size. Each width and height menu keeps its own history; click **×** beside a value to remove it. Resizing exits maximized or full-screen mode, and the resulting size may differ due to browser or OS limits.
 
-The **Page** tab updates when metadata changes.
+The **Overview** tab updates when metadata changes.
 
 **Storage** and **Cookies** refresh automatically, pausing while you edit. Both JSON and plain-text values can be edited. **Save** and **Delete** change the selected website storage item or browser cookie; changes made by the website since inspection are checked before applying an edit.
 

@@ -35,7 +35,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { runModule } from './helpers/run-module.js'
 const tick = () => new Promise(setImmediate)
-test('side panel tabs open Page, reject stale metadata, refresh scoped data, filter values, and edit Storage and Cookies', async () => {
+test('side panel tabs open Overview, reject stale metadata, refresh scoped data, filter values, and edit Storage and Cookies', async () => {
   const elements = new RequiredMap<string, Element>()
   const sent: Operation[] = []
   const reloadedImages: string[] = []
@@ -274,9 +274,10 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
     'Twitter title',
   )
   assert.equal(elements.get('storageWorkspace').hidden, true)
+  assert.equal(elements.get('pageView').hidden, false)
   const beforeMetadataPoll = sent.length
   poll()
-  assert.equal(sent.length, beforeMetadataPoll, 'Page does not poll')
+  assert.equal(sent.length, beforeMetadataPoll, 'Overview does not poll')
   await receive({ type: 'metadataChanged', tabId: 2 })
   assert.equal(sent.length, beforeMetadataPoll)
   await receive({ type: 'metadataChanged', tabId: 1 })
@@ -380,8 +381,17 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
   assert.equal(groupedEntries[5].textContent, 'Title')
   assert.equal(groupedEntries[1].textContent, 'first.png')
   assert.equal(groupedEntries[3].textContent, 'second.png')
+  const historyMenu = Object.assign(new Element(), {
+    open: true,
+    hidePopover() {
+      this.open = false
+    },
+  })
+  elements.get('pageView').querySelectorAll = () =>
+    historyMenu.open ? [historyMenu] : []
   elements.get('storageModeButton').listeners.click()
-  assert.equal(elements.get('metadataView').hidden, true)
+  assert.equal(historyMenu.open, false)
+  assert.equal(elements.get('pageView').hidden, true)
   assert.equal(queries[0].windowId, 7)
   assert.equal(
     sent.some((m) => m.type === 'getStorage'),
@@ -546,6 +556,8 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
     session: true,
   }
   elements.get('cookiesModeButton').listeners.click()
+  assert.equal(elements.get('pageView').hidden, true)
+  assert.equal(elements.get('storageWorkspace').hidden, false)
   assert.equal(elements.get('editStorageButton').disabled, true)
   assert.equal(required(sent.at(-1)).type, 'getCookies')
   await receive({
@@ -613,4 +625,7 @@ test('side panel tabs open Page, reject stale metadata, refresh scoped data, fil
   })
   await tick()
   assert.equal(elements.get('entryList').children.length, 0)
+  elements.get('metadataModeButton').listeners.click()
+  assert.equal(elements.get('pageView').hidden, false)
+  assert.equal(elements.get('storageWorkspace').hidden, true)
 })

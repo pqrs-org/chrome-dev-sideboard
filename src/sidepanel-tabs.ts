@@ -57,7 +57,12 @@ const updateActiveTab = ({ tab, error, pageChanged }: ActiveTabUpdate) => {
 const renderTabs = () => {
   const metadata = panelState.mode === 'metadata'
   panelElements.metadataModeButton.classList.toggle('active', metadata)
-  panelElements.metadataView.hidden = !metadata
+  panelElements.pageView.hidden = !metadata
+  if (!metadata) {
+    panelElements.pageView
+      .querySelectorAll<HTMLElement>('[popover]:popover-open')
+      .forEach((popover) => popover.hidePopover())
+  }
   panelElements.storageWorkspace.hidden = metadata
   SidepanelMetadata.renderMetadata()
   SidepanelStorage.renderModeChrome()

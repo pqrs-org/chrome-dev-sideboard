@@ -110,7 +110,7 @@ body {
   color: var(--muted);
 }
 
-.stat-button {
+.inspector .stat-button {
   padding: 0;
   border: 0;
   background: transparent;
@@ -166,15 +166,14 @@ body {
 
 body {
   height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 #overviewContent {
-  flex: 0 1 auto;
-  max-height: 42vh;
   padding: 0.625rem 0.75rem 0.5rem;
-  overflow: auto;
-  min-height: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
 }
 
 .window-details {

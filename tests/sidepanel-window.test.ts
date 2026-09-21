@@ -12,12 +12,17 @@ const historyStore = (savedHistory: unknown = {}) => ({
   ) => void)[],
   locks: new Map<string, Promise<unknown>>(),
 })
-const panel = async (
+const panel = async ({
   zoom = 1,
   limited = false,
-  savedHistory: unknown = {},
-  shared = historyStore(savedHistory),
-) => {
+  history = {},
+  shared = historyStore(history),
+}: {
+  zoom?: number
+  limited?: boolean
+  history?: unknown
+  shared?: ReturnType<typeof historyStore>
+} = {}) => {
   const { stored } = shared
   let focused: TestElement | undefined
   const setFocused = (element: TestElement) => {
@@ -152,7 +157,7 @@ const panel = async (
             if (fail) {
               throw new Error('Window closed')
             }
-            updates.push([id, info])
+            updates.push([id, structuredClone(info)])
             current = { ...current, ...info }
             if (limited) {
               current.width = Math.min(current.width, 1400)
@@ -182,6 +187,24 @@ const panel = async (
   return {
     elements,
     stored,
+    input: (selector: string, value: string) => {
+      const input = elements.get(selector)
+      input.value = value
+      input.listeners.input()
+    },
+    history: (selector: string) =>
+      elements
+        .get(`${selector}HistoryMenu`)
+        .children.map((row) => Number(row.children[0].textContent)),
+    selectHistory: (selector: string, index = 0) =>
+      elements
+        .get(`${selector}HistoryMenu`)
+        .children[index].children[0].listeners.click(),
+    deleteHistory: async (selector: string, index = 0) => {
+      await elements
+        .get(`${selector}HistoryMenu`)
+        .children[index].children[1].listeners.click()
+    },
     focused: () => focused,
     key: (element: TestElement, key: string, target = element) => {
       ;(element.listeners.keydown as unknown as (event: object) => void)({
@@ -236,8 +259,7 @@ test('preserves viewport edits until the actual size changes', async () => {
   p.sidebar(500)
   await p.poll()
   assert.equal(p.elements.get('#windowWidth').value, '700')
-  p.elements.get('#windowWidth').value = '900'
-  p.elements.get('#windowWidth').listeners.input()
+  p.input('#windowWidth', '900')
   assert.equal(p.elements.get('#applyWindowSize').disabled, false)
   await p.poll()
   assert.equal(p.elements.get('#windowWidth').value, '900')
@@ -255,29 +277,21 @@ test('preserves viewport edits until the actual size changes', async () => {
   assert.equal(p.elements.get('#applyWindowSize').disabled, true)
 })
 test('history selection targets the viewport and accounts for browser chrome and page zoom', async () => {
-  const p = await panel(1.5, false, { width: [1280], height: [720] })
+  const p = await panel({
+    zoom: 1.5,
+    history: { width: [1280], height: [720] },
+  })
   assert.equal(p.elements.get('#windowWidth').value, String(800 / 1.5))
-  assert.equal(
-    p.elements.get('#windowWidthHistoryMenu').children[0].children[0]
-      .textContent,
-    '1280',
-  )
-  p.elements
-    .get('#windowWidthHistoryMenu')
-    .children[0].children[0].listeners.click()
-  p.elements
-    .get('#windowHeightHistoryMenu')
-    .children[0].children[0].listeners.click()
+  assert.equal(p.history('#windowWidth')[0], 1280)
+  p.selectHistory('#windowWidth')
+  p.selectHistory('#windowHeight')
   assert.equal(p.updates.length, 0)
   assert.equal(p.elements.get('#applyWindowSize').disabled, false)
   await p.submit()
-  assert.equal(
-    JSON.stringify(p.updates),
-    JSON.stringify([
-      [7, { state: 'normal' }],
-      [7, { width: 2320, height: 1180 }],
-    ]),
-  )
+  assert.deepEqual(p.updates, [
+    [7, { state: 'normal' }],
+    [7, { width: 2320, height: 1180 }],
+  ])
   assert.equal(p.elements.get('#windowWidth').value, '1280')
   assert.equal(p.elements.get('#windowHeight').value, '720')
   assert.equal(p.elements.get('#applyWindowSize').disabled, true)
@@ -286,14 +300,12 @@ test('history selection targets the viewport and accounts for browser chrome and
 test('invalid input does not resize, errors re-enable Apply, unavailable pages disable it', async () => {
   const p = await panel()
   for (const value of ['', '0', '-1', '1.5', 'Infinity', '32768']) {
-    p.elements.get('#windowWidth').value = value
-    p.elements.get('#windowWidth').listeners.input()
+    p.input('#windowWidth', value)
     assert.equal(p.elements.get('#applyWindowSize').disabled, true)
     await p.submit()
     assert.equal(p.updates.length, 0)
   }
-  p.elements.get('#windowWidth').value = '1000'
-  p.elements.get('#windowWidth').listeners.input()
+  p.input('#windowWidth', '1000')
   assert.equal(p.elements.get('#applyWindowSize').disabled, false)
   p.fail()
   await p.submit()
@@ -305,9 +317,9 @@ test('invalid input does not resize, errors re-enable Apply, unavailable pages d
   assert.equal(p.elements.get('#applyWindowSize').disabled, true)
 })
 test('bounded correction reports actual viewport when the OS limits window size', async () => {
-  const p = await panel(1, true)
-  p.elements.get('#windowWidth').value = '1280'
-  p.elements.get('#windowHeight').value = '720'
+  const p = await panel({ limited: true })
+  p.input('#windowWidth', '1280')
+  p.input('#windowHeight', '720')
   await p.submit()
   assert.equal(p.updates.length, 5)
   assert.deepEqual(p.stored.viewportSizeHistory, {
@@ -322,60 +334,51 @@ test('bounded correction reports actual viewport when the OS limits window size'
   )
 })
 test('history persists applied values, deduplicates them, and caps each dimension at 20', async () => {
-  const p = await panel(1, false, {
-    width: [
-      900,
-      800,
-      900,
-      'bad',
-      0,
-      ...Array.from({ length: 25 }, (_, i) => 1000 + i),
-    ],
-    height: [700, 800],
+  const p = await panel({
+    history: {
+      width: [
+        900,
+        800,
+        900,
+        'bad',
+        0,
+        ...Array.from({ length: 25 }, (_, i) => 1000 + i),
+      ],
+      height: [700, 800],
+    },
   })
-  const values = (dimension: string) =>
-    p.elements
-      .get(`#window${dimension}HistoryMenu`)
-      .children.map((row) => Number(row.children[0].textContent))
-  assert.equal(values('Width').length, 20)
-  assert.deepEqual(values('Width').slice(0, 3), [900, 800, 1000])
-  p.elements.get('#windowWidth').value = '800'
-  p.elements.get('#windowHeight').value = '700'
-  p.elements.get('#windowHeight').listeners.input()
+  assert.equal(p.history('#windowWidth').length, 20)
+  assert.deepEqual(p.history('#windowWidth').slice(0, 3), [900, 800, 1000])
+  p.input('#windowWidth', '800')
+  p.input('#windowHeight', '700')
   await p.submit()
-  assert.deepEqual(values('Width').slice(0, 3), [800, 900, 1000])
-  assert.equal(values('Width').length, 20)
+  assert.deepEqual(p.history('#windowWidth').slice(0, 3), [800, 900, 1000])
+  assert.equal(p.history('#windowWidth').length, 20)
   assert.deepEqual(p.stored.viewportSizeHistory, {
-    width: values('Width'),
+    width: p.history('#windowWidth'),
     height: [700, 800],
   })
-  const reopened = await panel(1, false, p.stored.viewportSizeHistory)
-  assert.equal(
-    reopened.elements.get('#windowWidthHistoryMenu').children[0].children[0]
-      .textContent,
-    '800',
-  )
+  const reopened = await panel({ history: p.stored.viewportSizeHistory })
+  assert.equal(reopened.history('#windowWidth')[0], 800)
 })
 test('failed resizing does not add history', async () => {
   const p = await panel()
-  p.elements.get('#windowWidth').value = '1280'
-  p.elements.get('#windowWidth').listeners.input()
+  p.input('#windowWidth', '1280')
   p.fail()
   await p.submit()
-  assert.equal(p.elements.get('#windowWidthHistoryMenu').children.length, 0)
+  assert.equal(p.history('#windowWidth').length, 0)
   assert.deepEqual(p.stored.viewportSizeHistory, {})
 })
 test('history save failures are visible without adding unsaved entries', async () => {
   const p = await panel()
   p.failHistorySave()
-  p.elements.get('#windowWidth').value = '900'
-  p.elements.get('#windowWidth').listeners.input()
+  p.input('#windowWidth', '900')
   await p.submit()
   assert.match(
     p.elements.get('#windowStatus').textContent,
     /history could not be saved/,
   )
-  assert.equal(p.elements.get('#windowWidthHistoryMenu').children.length, 0)
+  assert.equal(p.history('#windowWidth').length, 0)
   assert.equal(p.elements.get('#windowWidthHistory').disabled, true)
 })
 test('outer window sizing works on restricted tabs and preserves independent histories', async () => {
@@ -384,12 +387,11 @@ test('outer window sizing works on restricted tabs and preserves independent his
   await p.poll()
   assert.equal(p.elements.get('#windowWidth').disabled, true)
   assert.equal(p.elements.get('#outerWidth').disabled, false)
-  p.elements.get('#outerWidth').value = '1000'
-  p.elements.get('#outerHeight').value = '700'
-  p.elements.get('#outerWidth').listeners.input()
+  p.input('#outerWidth', '1000')
+  p.input('#outerHeight', '700')
   assert.equal(p.elements.get('#applyOuterSize').disabled, false)
   await p.submit('#outerResize')
-  assert.deepEqual(JSON.parse(JSON.stringify(p.updates)), [
+  assert.deepEqual(p.updates, [
     [7, { state: 'normal' }],
     [7, { width: 1000, height: 700 }],
   ])
@@ -399,16 +401,14 @@ test('outer window sizing works on restricted tabs and preserves independent his
   assert.deepEqual(p.stored.viewportSizeHistory, {})
 })
 test('outer edits reset on size changes and OS limits show the actual result', async () => {
-  const p = await panel(1, true)
-  p.elements.get('#outerWidth').value = '1800'
-  p.elements.get('#outerWidth').listeners.input()
+  const p = await panel({ limited: true })
+  p.input('#outerWidth', '1800')
   p.bounds({ id: 7, width: 1200, height: 900 })
   assert.equal(p.elements.get('#outerWidth').value, '1800')
   p.bounds({ id: 7, width: 1300, height: 900 })
   assert.equal(p.elements.get('#outerWidth').value, '1300')
   assert.equal(p.elements.get('#applyOuterSize').disabled, true)
-  p.elements.get('#outerWidth').value = '1800'
-  p.elements.get('#outerWidth').listeners.input()
+  p.input('#outerWidth', '1800')
   await p.submit('#outerResize')
   assert.equal(p.elements.get('#outerWidth').value, '1400')
   assert.match(p.elements.get('#outerStatus').textContent, /actual 1400 × 900/)
@@ -417,9 +417,8 @@ test('outer edits reset on size changes and OS limits show the actual result', a
 test('resizing replaces blank width and height fields with the current dimensions', async () => {
   const p = await panel()
   for (const prefix of ['outer', 'window']) {
-    p.elements.get(`#${prefix}Width`).value = ''
-    p.elements.get(`#${prefix}Height`).value = ''
-    p.elements.get(`#${prefix}Width`).listeners.input()
+    p.input(`#${prefix}Width`, '')
+    p.input(`#${prefix}Height`, '')
   }
   await p.poll()
   assert.equal(p.elements.get('#outerWidth').value, '')
@@ -435,29 +434,19 @@ test('resizing replaces blank width and height fields with the current dimension
   assert.equal(p.elements.get('#applyWindowSize').disabled, true)
 })
 test('deleting an individual history item persists without changing input or resizing', async () => {
-  const p = await panel(1, false, { width: [900, 800], height: [700] })
+  const p = await panel({ history: { width: [900, 800], height: [700] } })
   const menu = p.elements.get('#windowWidthHistoryMenu')
-  const remove = async () => {
-    await (
-      menu.children[0].children[1].listeners
-        .click as unknown as () => Promise<void>
-    )()
-  }
-  await remove()
+  await p.deleteHistory('#windowWidth')
   assert.deepEqual(p.stored.viewportSizeHistory, {
     width: [800],
     height: [700],
   })
   assert.equal(p.elements.get('#windowWidth').value, '800')
   assert.equal(p.updates.length, 0)
-  const reopened = await panel(1, false, p.stored.viewportSizeHistory)
-  assert.equal(
-    reopened.elements.get('#windowWidthHistoryMenu').children[0].children[0]
-      .textContent,
-    '800',
-  )
+  const reopened = await panel({ history: p.stored.viewportSizeHistory })
+  assert.equal(reopened.history('#windowWidth')[0], 800)
   p.failHistorySave()
-  await remove()
+  await p.deleteHistory('#windowWidth')
   assert.equal(menu.children[0].children[0].textContent, '800')
   assert.match(
     p.elements.get('#windowStatus').textContent,
@@ -465,15 +454,10 @@ test('deleting an individual history item persists without changing input or res
   )
 })
 test('outer history deletion is independent of viewport history', async () => {
-  const p = await panel(1, false, { width: [900], height: [700] })
-  p.elements.get('#outerWidth').value = '1000'
-  p.elements.get('#outerWidth').listeners.input()
+  const p = await panel({ history: { width: [900], height: [700] } })
+  p.input('#outerWidth', '1000')
   await p.submit('#outerResize')
-  const menu = p.elements.get('#outerWidthHistoryMenu')
-  await (
-    menu.children[0].children[1].listeners
-      .click as unknown as () => Promise<void>
-  )()
+  await p.deleteHistory('#outerWidth')
   assert.deepEqual(p.stored.windowSizeHistory, { width: [], height: [900] })
   assert.deepEqual(p.stored.viewportSizeHistory, {
     width: [900],
@@ -482,7 +466,7 @@ test('outer history deletion is independent of viewport history', async () => {
   assert.equal(p.elements.get('#outerWidthHistory').disabled, true)
 })
 test('history popover supports keyboard navigation, selection, deletion and dismissal', async () => {
-  const p = await panel(1, false, { width: [900, 1000], height: [700] })
+  const p = await panel({ history: { width: [900, 1000], height: [700] } })
   const trigger = p.elements.get('#windowWidthHistory')
   const menu = p.elements.get('#windowWidthHistoryMenu')
   p.key(trigger, 'ArrowDown')
@@ -493,10 +477,7 @@ test('history popover supports keyboard navigation, selection, deletion and dism
   assert.equal(p.focused(), menu.children[1].children[0])
   p.key(menu, 'ArrowRight', menu.children[1].children[0])
   assert.equal(p.focused(), menu.children[1].children[1])
-  await (
-    menu.children[1].children[1].listeners
-      .click as unknown as () => Promise<void>
-  )()
+  await p.deleteHistory('#windowWidth', 1)
   assert.equal(menu.open, true)
   assert.equal(p.focused(), menu.children[0].children[1])
   assert.equal(p.elements.get('#windowWidth').value, '800')
@@ -517,33 +498,24 @@ test('history popover supports keyboard navigation, selection, deletion and dism
 })
 test('multiple panels preserve concurrent history updates and do not restore deleted entries', async () => {
   const shared = historyStore({ width: [900], height: [800] })
-  const first = await panel(1, false, {}, shared)
-  const second = await panel(1, false, {}, shared)
-  const deleted = first.elements.get('#windowWidthHistoryMenu').children[0]
-    .children[1]
-  await (deleted.listeners.click as unknown as () => Promise<void>)()
-  assert.equal(
-    second.elements.get('#windowWidthHistoryMenu').children.length,
-    0,
-  )
+  const first = await panel({ shared })
+  const second = await panel({ shared })
+  await first.deleteHistory('#windowWidth')
+  assert.equal(second.history('#windowWidth').length, 0)
   for (const [p, value] of [
     [first, '1000'],
     [second, '1100'],
   ] as const) {
-    p.elements.get('#windowWidth').value = value
-    p.elements.get('#windowWidth').listeners.input()
+    p.input('#windowWidth', value)
   }
   await Promise.all([first.submit(), second.submit()])
   const saved = shared.stored.viewportSizeHistory as { width: number[] }
   assert.deepEqual([...saved.width].sort(), [1000, 1100])
-  assert.equal(first.elements.get('#windowWidthHistoryMenu').children.length, 2)
-  assert.equal(
-    second.elements.get('#windowWidthHistoryMenu').children.length,
-    2,
-  )
+  assert.equal(first.history('#windowWidth').length, 2)
+  assert.equal(second.history('#windowWidth').length, 2)
 })
 test('unavailable polling silently disables inputs and recovers without rebuilding history', async () => {
-  const p = await panel(1, false, { width: [900] })
+  const p = await panel({ history: { width: [900] } })
   const entry = p.elements.get('#windowWidthHistoryMenu').children[0]
   p.unavailable()
   await p.poll()
@@ -587,10 +559,7 @@ test('content script returns inner dimensions, not the browser outer dimensions'
   listener({ type: 'dev-sideboard:get-viewport' }, {}, (value) => {
     reply = value
   })
-  assert.equal(
-    JSON.stringify(reply),
-    JSON.stringify({ width: 800, height: 600 }),
-  )
+  assert.deepEqual(structuredClone(reply), { width: 800, height: 600 })
   reply = undefined
   listener({ type: 'dev-sideboard:get-storage' }, {}, (value) => {
     reply = value

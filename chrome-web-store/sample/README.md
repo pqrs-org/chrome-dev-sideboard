@@ -5,7 +5,7 @@ A standalone demo page with synthetic Open Graph, Local Storage, Session Storage
 From the repository root, run:
 
 ```sh
-node store/sample/serve.mjs
+node chrome-web-store/sample/serve.mjs
 ```
 
 Requires Node.js and `openssl`. Open <https://localhost:8443/>, then use Chrome's advanced option to proceed past the self-signed certificate warning for this local demo. The server listens only on the loopback interface. Its temporary certificate is removed when it exits.

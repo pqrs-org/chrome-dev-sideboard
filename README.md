@@ -55,4 +55,4 @@ Development requires Node.js 22.13 or later, pnpm, and zip. Run `pnpm install --
 - `make format` (or `pnpm format:write`) formats supported source files and documentation with Prettier. Formatting also runs automatically after `pnpm install` and `pnpm update`.
 - `make package` runs checks and creates the upload ZIP in `dist/`.
 
-See the [store listing](store/listing.md) and [submission notes](store/submission.md) for publication materials.
+See the [store listing](chrome-web-store/listing.md) and [submission notes](chrome-web-store/submission.md) for publication materials.

@@ -1,6 +1,6 @@
 # Dev Sideboard Privacy Policy
 
-Last updated: September 11, 2026
+Last updated: September 21, 2026
 
 Dev Sideboard helps you inspect page information, network activity, website storage, and cookies in Chrome’s side panel.
 
@@ -10,6 +10,7 @@ The extension uses the following data to provide its inspection features:
 
 - Page titles, URLs, and metadata such as canonical links and Open Graph tags.
 - HTTP/HTTPS request metadata, response headers, network measurements, and errors. Network monitoring operates automatically, including while the panel is closed.
+- Page viewport and browser window dimensions, used to display and resize the window and viewport when you click Apply.
 - Local Storage and Session Storage keys and values, and cookies matching the active page URL, including HttpOnly cookies and cookie attributes. These views refresh automatically while visible.
 
 URLs, storage values, and cookies may contain personal information, authentication tokens, or other sensitive data. Saving an edit or deleting an entry changes the selected website storage item or browser cookie.
@@ -17,6 +18,8 @@ URLs, storage values, and cookies may contain personal information, authenticati
 ## Storage and retention
 
 All inspection data is processed locally in your browser. Network measurements are stored temporarily in browser session memory, reset on navigation to a new document, and removed when the tab closes. They are also cleared when Chrome restarts or the extension is disabled, reloaded, or updated.
+
+The 20 most recent window and viewport widths and heights submitted with Apply are saved in local extension storage for reuse across browser sessions, without page URLs. Individual entries can be deleted from the size history menus. This history is removed when the extension is uninstalled.
 
 ## Sharing
 

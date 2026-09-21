@@ -4,6 +4,8 @@ import vm from 'node:vm'
 
 // Bind each VM entry point to the source module's exports.
 type Modules = {
+  '../src/page-content-script-viewport.js': typeof import('../../src/page-content-script-viewport.js')
+  '../src/sidepanel-window.js': typeof import('../../src/sidepanel-window.js')
   '../src/cookie-store.js': typeof import('../../src/cookie-store.js')
   '../src/page-content-script-image.js': typeof import('../../src/page-content-script-image.js')
   '../src/sidepanel-image-previews.js': typeof import('../../src/sidepanel-image-previews.js')

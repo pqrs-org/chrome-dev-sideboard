@@ -12,6 +12,7 @@ Inspect page information, network activity, storage, and cookies in Chrome’s s
 - Full page titles, following the active tab in each window
 - Canonical URLs, descriptions, and Open Graph metadata, including image previews
 - Request counts, error details, durations, and response size estimates
+- Live window and page viewport dimensions, numeric resizing, and size history
 - Inspect, edit, and delete Local Storage, Session Storage, and Cookies, with filtering, JSON tree navigation, and raw text viewing
 
 ## Installation
@@ -26,6 +27,8 @@ Requires Chrome 142 or later. Run `pnpm install --frozen-lockfile` and `make bui
 ## Usage
 
 Network monitoring starts automatically. Measurements reset on reload or navigation to a new document; switching tabs preserves them. Durations include download time. Response sizes are estimates based on available Content-Length headers, not total network usage. Chrome’s limitations mean some requests are not counted.
+
+**Window** shows the full browser window size; **Viewport** shows the page area in CSS pixels. Edit either row’s dimensions or select previously applied values from their menus, then click **Apply**, which is enabled when valid dimensions differ from the current size. Each width and height menu keeps its own history; click **×** beside a value to remove it. Resizing exits maximized or full-screen mode, and the resulting size may differ due to browser or OS limits.
 
 The **Page** tab updates when metadata changes.
 

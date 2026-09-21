@@ -3,3 +3,4 @@
 import './page-content-script-storage.js'
 import './page-content-script-metadata.js'
 import './page-content-script-image.js'
+import './page-content-script-viewport.js'

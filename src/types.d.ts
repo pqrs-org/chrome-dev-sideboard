@@ -132,7 +132,12 @@ interface StorageResult {
 }
 // Storage edit fields are checked at runtime before accessing website storage.
 type ContentRequest =
-  | { type: 'dev-sideboard:get-metadata' | 'dev-sideboard:get-storage' }
+  | {
+      type:
+        | 'dev-sideboard:get-metadata'
+        | 'dev-sideboard:get-storage'
+        | 'dev-sideboard:get-viewport'
+    }
   | {
       type: 'dev-sideboard:set-storage' | 'dev-sideboard:delete-storage'
       area?: unknown

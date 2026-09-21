@@ -93,6 +93,165 @@
           </p>
         </details>
       </section>
+      <section class="window-details" aria-label="Window and viewport size">
+        <form id="outerResize" class="window-dimensions">
+          <span
+            title="Full browser window, including browser controls and the side panel"
+            >Window</span
+          >
+          <span class="window-size-input">
+            <input
+              id="outerWidth"
+              aria-label="Window width"
+              type="text"
+              inputmode="numeric"
+              autocomplete="off"
+              placeholder="—"
+              required
+              disabled
+            />
+            <button
+              id="outerWidthHistory"
+              type="button"
+              class="history-toggle"
+              aria-label="Window width history"
+              aria-controls="outerWidthHistoryMenu"
+              aria-expanded="false"
+              aria-haspopup="dialog"
+              disabled
+            >
+              ▾
+            </button>
+            <span
+              id="outerWidthHistoryMenu"
+              class="size-history-menu"
+              popover="auto"
+              role="dialog"
+              aria-label="Window width history"
+            ></span>
+          </span>
+          <span aria-hidden="true">×</span>
+          <span class="window-size-input">
+            <input
+              id="outerHeight"
+              aria-label="Window height"
+              type="text"
+              inputmode="numeric"
+              autocomplete="off"
+              placeholder="—"
+              required
+              disabled
+            />
+            <button
+              id="outerHeightHistory"
+              type="button"
+              class="history-toggle"
+              aria-label="Window height history"
+              aria-controls="outerHeightHistoryMenu"
+              aria-expanded="false"
+              aria-haspopup="dialog"
+              disabled
+            >
+              ▾
+            </button>
+            <span
+              id="outerHeightHistoryMenu"
+              class="size-history-menu"
+              popover="auto"
+              role="dialog"
+              aria-label="Window height history"
+            ></span>
+          </span>
+          <span class="window-unit">px</span>
+          <button
+            id="applyOuterSize"
+            type="submit"
+            disabled
+            title="Resizing exits maximized or full-screen mode"
+          >
+            Apply
+          </button>
+        </form>
+        <p id="outerStatus" class="hint" role="status"></p>
+        <form id="windowResize" class="window-dimensions">
+          <span title="Page area in CSS pixels, including scrollbars"
+            >Viewport</span
+          >
+          <span class="window-size-input">
+            <input
+              id="windowWidth"
+              aria-label="Viewport width"
+              type="text"
+              inputmode="numeric"
+              autocomplete="off"
+              placeholder="—"
+              required
+              disabled
+            />
+            <button
+              id="windowWidthHistory"
+              type="button"
+              class="history-toggle"
+              aria-label="Viewport width history"
+              aria-controls="windowWidthHistoryMenu"
+              aria-expanded="false"
+              aria-haspopup="dialog"
+              disabled
+            >
+              ▾
+            </button>
+            <span
+              id="windowWidthHistoryMenu"
+              class="size-history-menu"
+              popover="auto"
+              role="dialog"
+              aria-label="Viewport width history"
+            ></span>
+          </span>
+          <span aria-hidden="true">×</span>
+          <span class="window-size-input">
+            <input
+              id="windowHeight"
+              aria-label="Viewport height"
+              type="text"
+              inputmode="numeric"
+              autocomplete="off"
+              placeholder="—"
+              required
+              disabled
+            />
+            <button
+              id="windowHeightHistory"
+              type="button"
+              class="history-toggle"
+              aria-label="Viewport height history"
+              aria-controls="windowHeightHistoryMenu"
+              aria-expanded="false"
+              aria-haspopup="dialog"
+              disabled
+            >
+              ▾
+            </button>
+            <span
+              id="windowHeightHistoryMenu"
+              class="size-history-menu"
+              popover="auto"
+              role="dialog"
+              aria-label="Viewport height history"
+            ></span>
+          </span>
+          <span class="window-unit">px</span>
+          <button
+            id="applyWindowSize"
+            type="submit"
+            disabled
+            title="Resizing exits maximized or full-screen mode"
+          >
+            Apply
+          </button>
+        </form>
+        <p id="windowStatus" class="hint" role="status"></p>
+      </section>
       <div id="status" class="status" role="status"></div>
     </main>
     <section class="inspector" aria-label="Page metadata, storage and cookies">

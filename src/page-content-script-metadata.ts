@@ -43,6 +43,10 @@ const observePageMetadata = () => {
     return
   }
   let timer: ReturnType<typeof setTimeout> | undefined
+  const stop = () => {
+    clearTimeout(timer)
+    metadataObserver?.disconnect()
+  }
   const relevant = (node: Node) =>
     node.nodeType === 1 &&
     ((node as Element).matches('meta, link, base') ||
@@ -59,9 +63,23 @@ const observePageMetadata = () => {
     }
     clearTimeout(timer)
     timer = setTimeout(() => {
-      chrome.runtime
-        .sendMessage({ type: 'dev-sideboard:metadata-changed' })
-        .catch(() => {})
+      // Updating the extension can invalidate scripts in pages that remain open.
+      try {
+        if (!chrome.runtime?.id) {
+          stop()
+          return
+        }
+        chrome.runtime
+          .sendMessage({ type: 'dev-sideboard:metadata-changed' })
+          .catch(() => {
+            if (!chrome.runtime?.id) {
+              stop()
+            }
+          })
+      } catch {
+        // sendMessage can throw synchronously when its context is invalidated.
+        stop()
+      }
     }, 100)
   })
   metadataObserver.observe(document, {

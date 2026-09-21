@@ -295,7 +295,6 @@ test('history selection targets the viewport and accounts for browser chrome and
   assert.equal(p.elements.get('#windowWidth').value, '1280')
   assert.equal(p.elements.get('#windowHeight').value, '720')
   assert.equal(p.elements.get('#applyWindowSize').disabled, true)
-  assert.equal(p.elements.get('#windowStatus').textContent, '')
 })
 test('invalid input does not resize, errors re-enable Apply, unavailable pages disable it', async () => {
   const p = await panel()
@@ -309,7 +308,6 @@ test('invalid input does not resize, errors re-enable Apply, unavailable pages d
   assert.equal(p.elements.get('#applyWindowSize').disabled, false)
   p.fail()
   await p.submit()
-  assert.equal(p.elements.get('#windowStatus').textContent, 'Window closed')
   assert.equal(p.elements.get('#applyWindowSize').disabled, false)
   await new Promise(setImmediate)
   p.unavailable()
@@ -328,10 +326,6 @@ test('bounded correction reports actual viewport when the OS limits window size'
   })
   assert.equal(p.elements.get('#windowWidth').value, '1000')
   assert.equal(p.elements.get('#applyWindowSize').disabled, true)
-  assert.match(
-    p.elements.get('#windowStatus').textContent,
-    /actual 1000 × 720 px/,
-  )
 })
 test('history persists applied values, deduplicates them, and caps each dimension at 20', async () => {
   const p = await panel({
@@ -369,15 +363,11 @@ test('failed resizing does not add history', async () => {
   assert.equal(p.history('#windowWidth').length, 0)
   assert.deepEqual(p.stored.viewportSizeHistory, {})
 })
-test('history save failures are visible without adding unsaved entries', async () => {
+test('history save failures do not add unsaved entries', async () => {
   const p = await panel()
   p.failHistorySave()
   p.input('#windowWidth', '900')
   await p.submit()
-  assert.match(
-    p.elements.get('#windowStatus').textContent,
-    /history could not be saved/,
-  )
   assert.equal(p.history('#windowWidth').length, 0)
   assert.equal(p.elements.get('#windowWidthHistory').disabled, true)
 })
@@ -411,7 +401,6 @@ test('outer edits reset on size changes and OS limits show the actual result', a
   p.input('#outerWidth', '1800')
   await p.submit('#outerResize')
   assert.equal(p.elements.get('#outerWidth').value, '1400')
-  assert.match(p.elements.get('#outerStatus').textContent, /actual 1400 × 900/)
   assert.deepEqual(p.stored.windowSizeHistory, { width: [1800], height: [900] })
 })
 test('resizing replaces blank width and height fields with the current dimensions', async () => {
@@ -448,10 +437,6 @@ test('deleting an individual history item persists without changing input or res
   p.failHistorySave()
   await p.deleteHistory('#windowWidth')
   assert.equal(menu.children[0].children[0].textContent, '800')
-  assert.match(
-    p.elements.get('#windowStatus').textContent,
-    /could not be deleted/,
-  )
 })
 test('outer history deletion is independent of viewport history', async () => {
   const p = await panel({ history: { width: [900], height: [700] } })
@@ -521,13 +506,11 @@ test('unavailable polling silently disables inputs and recovers without rebuildi
   await p.poll()
   await p.poll()
   assert.equal(p.elements.get('#windowWidthHistoryMenu').children[0], entry)
-  assert.equal(p.elements.get('#windowStatus').textContent, '')
   assert.equal(p.elements.get('#windowWidth').disabled, true)
   assert.equal(p.elements.get('#windowHeight').disabled, true)
   assert.equal(p.elements.get('#applyWindowSize').disabled, true)
   p.unavailable(false)
   await p.poll()
-  assert.equal(p.elements.get('#windowStatus').textContent, '')
   assert.equal(p.elements.get('#windowWidth').disabled, false)
   assert.equal(p.elements.get('#windowHeight').disabled, false)
   assert.equal(p.elements.get('#windowWidthHistoryMenu').children[0], entry)

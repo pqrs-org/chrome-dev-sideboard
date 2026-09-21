@@ -1,6 +1,5 @@
 import { SidepanelActiveTab } from './sidepanel-active-tab.js'
 import { createSizeHistory } from './sidepanel-size-history.js'
-import { errorMessage } from './error-message.js'
 
 interface Size {
   width: number
@@ -57,7 +56,6 @@ const createSizeEditor = (mode: 'window' | 'viewport') => {
   const apply = document.querySelector<HTMLButtonElement>(
     isViewport ? '#applyWindowSize' : '#applyOuterSize',
   )!
-  const status = document.querySelector<HTMLElement>(`#${prefix}Status`)!
   const inputs = { width, height }
   const historyKey = isViewport ? 'viewportSizeHistory' : 'windowSizeHistory'
   const history: Record<Dimension, number[]> = { width: [], height: [] }
@@ -79,7 +77,7 @@ const createSizeEditor = (mode: 'window' | 'viewport') => {
           return
         }
         inputs[dimension].value = String(value)
-        edited()
+        updateControls()
       },
       async (value) => {
         if (resizing || savingHistory) {
@@ -93,9 +91,8 @@ const createSizeEditor = (mode: 'window' | 'viewport') => {
               (entry) => entry !== value,
             )
           })
-          status.textContent = `Deleted ${value} from ${dimension} history.`
         } catch {
-          status.textContent = 'History item could not be deleted.'
+          // Keep the existing history when persistence fails.
         } finally {
           savingHistory = false
           updateControls()
@@ -166,9 +163,7 @@ const createSizeEditor = (mode: 'window' | 'viewport') => {
     .request(historyKey, async () => {
       updateHistory(await loadHistory())
     })
-    .catch(() => {
-      status.textContent = 'Size history could not be loaded.'
-    })
+    .catch(() => {})
   const rememberSize = (requested: Size) =>
     changeHistory((latest) => {
       for (const dimension of dimensions) {
@@ -232,7 +227,6 @@ const createSizeEditor = (mode: 'window' | 'viewport') => {
         actualSize = undefined
         available = false
         width.value = height.value = ''
-        status.textContent = ''
         updateControls()
       }
       tab =
@@ -265,12 +259,8 @@ const createSizeEditor = (mode: 'window' | 'viewport') => {
       void refresh()
     }, 500)
   }
-  const edited = () => {
-    status.textContent = ''
-    updateControls()
-  }
   for (const input of [width, height]) {
-    input.addEventListener('input', edited)
+    input.addEventListener('input', updateControls)
   }
   form.addEventListener('submit', async (event) => {
     event.preventDefault()
@@ -285,7 +275,6 @@ const createSizeEditor = (mode: 'window' | 'viewport') => {
     const w = Number(width.value)
     const h = Number(height.value)
     if (![w, h].every(validDimension)) {
-      status.textContent = 'Enter whole numbers from 1 to 32767.'
       return
     }
     if (w === actualSize?.width && h === actualSize.height) {
@@ -301,7 +290,6 @@ const createSizeEditor = (mode: 'window' | 'viewport') => {
     }
     resizing = true
     updateAllControls()
-    status.textContent = ''
     try {
       const current = await chrome.windows.get(targetWindowId)
       ensureCurrent()
@@ -353,21 +341,9 @@ const createSizeEditor = (mode: 'window' | 'viewport') => {
       }
       ensureCurrent()
       render(actual, true)
-      status.textContent =
-        actual.width === w && actual.height === h
-          ? ''
-          : `Requested ${w} × ${h} px; actual ${actual.width} × ${actual.height} px. Chrome, zoom, or OS limits prevented an exact match.`
-      try {
-        await rememberSize({ width: w, height: h })
-      } catch {
-        if (version === generation) {
-          status.textContent += ' Size history could not be saved.'
-        }
-      }
-    } catch (error) {
-      if (version === generation) {
-        status.textContent = errorMessage(error)
-      }
+      await rememberSize({ width: w, height: h })
+    } catch {
+      // Refresh the actual size and restore controls after a failed operation.
     } finally {
       resizing = false
       updateAllControls()

@@ -21,6 +21,10 @@ Inspect the active page without leaving your workspace. Dev Sideboard keeps the 
 
 Requires Chrome 142 or later. Click the extension icon to open the side panel.
 
+## What's new in v1.6.0
+
+- Fixed stale Open Graph metadata after in-page navigation on single-page apps, including video changes on YouTube.
+
 ## What's new in v1.5.0
 
 - Added window and viewport resizing with persistent, individually removable size history.

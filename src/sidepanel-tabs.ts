@@ -113,14 +113,6 @@ const start = () => {
   SidepanelJson.initializeJsonViewer(SidepanelStorage.renderDetail)
   SidepanelStorage.initializeStorageList(renderTabs)
   SidepanelEditor.initializeStorageEditor()
-  const stopObserving = SidepanelPageData.observeMetadataChanges((tabId) => {
-    if (tabId === panelState.tabId && panelState.mode === 'metadata') {
-      snapshotState.pendingUntil = 0
-      requestSnapshot()
-    }
-  })
-  window.addEventListener('pagehide', stopObserving, { once: true })
-
   panelElements.metadataModeButton.addEventListener('click', () =>
     selectMode('metadata'),
   )

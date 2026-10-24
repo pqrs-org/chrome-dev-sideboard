@@ -1,5 +1,4 @@
-import { required, type SendArgs, type MessageSender } from './helpers/mocks.js'
-type Listener = (message: { type: string }, sender: MessageSender) => void
+import { required, type SendArgs } from './helpers/mocks.js'
 type CookieSnapshot = Awaited<
   ReturnType<typeof import('../src/cookie-store.js').ExtensionCookies.read>
 >
@@ -10,14 +9,6 @@ const tick = () => new Promise(setImmediate)
 
 const setup = () => {
   let documentId = 'doc-1'
-  const listeners = new Set<Listener>()
-  const runtime = {
-    id: 'extension',
-    onMessage: {
-      addListener: (fn: Listener) => listeners.add(fn),
-      removeListener: (fn: Listener) => listeners.delete(fn),
-    },
-  }
   const sent: SendArgs[] = []
   const tabs = {
     sendMessage: async (
@@ -38,7 +29,6 @@ const setup = () => {
     '../src/sidepanel-page-data.js',
     {
       chrome: {
-        runtime,
         tabs,
         webNavigation: {
           getFrame: async () => ({
@@ -55,7 +45,6 @@ const setup = () => {
     sent,
     tabs,
     cookies,
-    listeners,
     setDocument: (id: string) => {
       documentId = id
     },
@@ -76,36 +65,6 @@ test('side panel rejects a snapshot that finishes after navigation', async () =>
   const result = await read
   assert.match(required(result.error), /page changed/)
   assert.equal(result.openGraph, undefined)
-})
-
-test('metadata notifications require the extension, main frame and current document; commands are not accepted', async () => {
-  const s = setup()
-  const changed: number[] = []
-  const stop = s.api.observeMetadataChanges((tabId) => changed.push(tabId))
-  const listener = [...s.listeners][0]
-  const sender = {
-    id: 'extension',
-    tab: { id: 1 },
-    frameId: 0,
-    documentId: 'doc-1',
-  }
-  for (const invalid of [
-    { ...sender, id: 'other' },
-    { ...sender, frameId: 1 },
-    { ...sender, documentId: 'old' },
-    { ...sender, tab: undefined },
-  ]) {
-    listener({ type: 'dev-sideboard:metadata-changed' }, invalid)
-  }
-  listener({ type: 'setStorage' }, sender)
-  await tick()
-  assert.deepEqual(changed, [])
-  assert.equal(s.sent.length, 0)
-  listener({ type: 'dev-sideboard:metadata-changed' }, sender)
-  await tick()
-  assert.deepEqual(changed, [1])
-  stop()
-  assert.equal(s.listeners.size, 0)
 })
 
 test('Storage reads do not access cookies', async () => {

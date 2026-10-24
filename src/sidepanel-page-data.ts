@@ -57,32 +57,8 @@ const readCookies = async (tabId: number): Promise<StorageSnapshot> => {
   }
 }
 
-const observeMetadataChanges = (onChange: (tabId: number) => void) => {
-  const listener = (message: unknown, sender: chrome.runtime.MessageSender) => {
-    if (
-      !message ||
-      typeof message !== 'object' ||
-      !('type' in message) ||
-      message.type !== prefix + 'metadata-changed' ||
-      sender.id !== chrome.runtime.id ||
-      typeof sender.tab?.id !== 'number' ||
-      sender.frameId !== 0 ||
-      !sender.documentId
-    ) {
-      return
-    }
-    const tabId = sender.tab.id
-    getFrame(tabId, sender.documentId)
-      .then(() => onChange(tabId))
-      .catch(() => {})
-  }
-  chrome.runtime.onMessage.addListener(listener)
-  return () => chrome.runtime.onMessage.removeListener(listener)
-}
-
 export const SidepanelPageData = {
   readMetadata,
   readStorage,
   readCookies,
-  observeMetadataChanges,
 }

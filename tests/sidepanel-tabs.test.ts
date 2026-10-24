@@ -17,7 +17,6 @@ type Operation = Omit<
 type Snapshot = MetadataSnapshot & StorageSnapshot
 type OperationResult = Snapshot & Partial<StorageResult>
 type SimulatedMessage =
-  | { type: 'metadataChanged'; tabId: number }
   | {
       type: 'metadataSnapshot' | 'storageSnapshot'
       tabId?: number
@@ -41,8 +40,8 @@ test('side panel tabs open Overview, reject stale metadata, refresh scoped data,
   const reloadedImages: string[] = []
   let snapshotType = 'getStorage'
   let activated!: (info: { windowId: number }) => void
+  let updated!: Parameters<typeof chrome.tabs.onUpdated.addListener>[0]
   let activeTabId = 1
-  let metadataChanged!: (tabId: number) => void
   const pending: {
     tabId: number
     request: Operation
@@ -112,7 +111,11 @@ test('side panel tabs open Overview, reject stale metadata, refresh scoped data,
               activated = fn
             },
           },
-          onUpdated: { addListener() {} },
+          onUpdated: {
+            addListener(fn: typeof updated) {
+              updated = fn
+            },
+          },
           onRemoved: { addListener() {} },
           onReplaced: { addListener() {} },
         },
@@ -130,10 +133,6 @@ test('side panel tabs open Overview, reject stale metadata, refresh scoped data,
           readCookies: (tabId: number) => {
             snapshotType = 'getCookies'
             return queueOperation(tabId, { type: snapshotType })
-          },
-          observeMetadataChanges(callback: typeof metadataChanged) {
-            metadataChanged = callback
-            return () => {}
           },
         },
       },
@@ -169,36 +168,37 @@ test('side panel tabs open Overview, reject stale metadata, refresh scoped data,
   )
   const receive = async (message: SimulatedMessage) => {
     await tick()
-    if (message.type === 'metadataChanged') {
-      metadataChanged(message.tabId)
-    } else {
-      const expectedType =
-        message.type === 'metadataSnapshot'
-          ? 'getMetadata'
-          : message.type === 'storageSnapshot'
-            ? snapshotType
-            : required(sent.at(-1)).type
-      let index = pending.findLastIndex(
+    const expectedType =
+      message.type === 'metadataSnapshot'
+        ? 'getMetadata'
+        : message.type === 'storageSnapshot'
+          ? snapshotType
+          : required(sent.at(-1)).type
+    let index = pending.findLastIndex(
+      (item) => item.request.type === expectedType,
+    )
+    if (index < 0) {
+      if (expectedType === 'getMetadata') {
+        updated(activeTabId, { url: `https://example.com/${sent.length}` }, {
+          id: activeTabId,
+          active: true,
+          windowId: 7,
+        } as chrome.tabs.Tab)
+        await tick()
+      } else {
+        poll()
+      }
+      index = pending.findLastIndex(
         (item) => item.request.type === expectedType,
       )
-      if (index < 0) {
-        if (expectedType === 'getMetadata') {
-          metadataChanged(activeTabId)
-        } else {
-          poll()
-        }
-        index = pending.findLastIndex(
-          (item) => item.request.type === expectedType,
-        )
-      }
-      assert.ok(index >= 0, 'a request is pending for the simulated result')
-      const item = pending.splice(index, 1)[0]
-      item.resolve(
-        message.type === 'storageSaved'
-          ? { ok: message.ok, error: message.error }
-          : required(message.snapshot),
-      )
     }
+    assert.ok(index >= 0, 'a request is pending for the simulated result')
+    const item = pending.splice(index, 1)[0]
+    item.resolve(
+      message.type === 'storageSaved'
+        ? { ok: message.ok, error: message.error }
+        : required(message.snapshot),
+    )
     await tick()
     if (message.type === 'storageSaved' && message.ok) {
       // A write only closes the editor; the next periodic read updates the view.
@@ -278,9 +278,12 @@ test('side panel tabs open Overview, reject stale metadata, refresh scoped data,
   const beforeMetadataPoll = sent.length
   poll()
   assert.equal(sent.length, beforeMetadataPoll, 'Overview does not poll')
-  await receive({ type: 'metadataChanged', tabId: 2 })
-  assert.equal(sent.length, beforeMetadataPoll)
-  await receive({ type: 'metadataChanged', tabId: 1 })
+  updated(1, { url: 'https://example.com/next' }, {
+    id: 1,
+    active: true,
+    windowId: 7,
+  } as chrome.tabs.Tab)
+  await tick()
   assert.equal(required(sent.at(-1)).type, 'getMetadata')
   await receive({
     type: 'metadataSnapshot',
@@ -397,8 +400,9 @@ test('side panel tabs open Overview, reject stale metadata, refresh scoped data,
     sent.some((m) => m.type === 'getStorage'),
     true,
   )
+  const queriesBeforeOtherWindow = queries.length
   activated({ windowId: 8 })
-  assert.equal(queries.length, 1)
+  assert.equal(queries.length, queriesBeforeOtherWindow)
   await receive({
     type: 'storageSnapshot',
     tabId: 1,
